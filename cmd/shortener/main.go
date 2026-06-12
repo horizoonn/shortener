@@ -31,7 +31,7 @@ func main() {
 
 	zapLogger.Debug("application time zone", zap.String("zone", time.Local.String()))
 
-	application, err := app.New(cfg, zapLogger)
+	application, err := app.New(ctx, cfg, zapLogger)
 	if err != nil {
 		zapLogger.Fatal("init app", zap.Error(err))
 	}
