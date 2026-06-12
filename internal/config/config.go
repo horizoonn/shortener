@@ -13,10 +13,9 @@ type Config struct {
 	RawTimeZone string `envconfig:"TIME_ZONE" default:"UTC"`
 	TimeZone    *time.Location
 
-	Logger LoggerConfig
-	HTTP   HTTPConfig
-
-	DatabaseURL string `envconfig:"DATABASE_URL" default:"postgres://shortener:shortener@localhost:5432/shortener?sslmode=disable"`
+	Logger   LoggerConfig
+	HTTP     HTTPConfig
+	Postgres PostgresConfig
 
 	RedisAddr     string        `envconfig:"REDIS_ADDR" default:"localhost:6379"`
 	RedisPassword string        `envconfig:"REDIS_PASSWORD" default:""`
@@ -38,6 +37,14 @@ type HTTPConfig struct {
 	IdleTimeout       time.Duration `envconfig:"HTTP_IDLE_TIMEOUT" default:"60s"`
 	AllowedOrigins    []string      `envconfig:"HTTP_ALLOWED_ORIGINS" default:"*"`
 	AllowedMethods    []string      `envconfig:"HTTP_ALLOWED_METHODS" default:"GET,POST,OPTIONS"`
+}
+
+type PostgresConfig struct {
+	URL             string        `envconfig:"DATABASE_URL" default:"postgres://shortener:shortener@localhost:5432/shortener?sslmode=disable"`
+	Timeout         time.Duration `envconfig:"POSTGRES_TIMEOUT" default:"5s"`
+	MaxConns        int32         `envconfig:"POSTGRES_MAX_CONNS" default:"10"`
+	MinConns        int32         `envconfig:"POSTGRES_MIN_CONNS" default:"2"`
+	MaxConnIdleTime time.Duration `envconfig:"POSTGRES_MAX_CONN_IDLE_TIME" default:"5m"`
 }
 
 func Load() (Config, error) {
@@ -89,6 +96,24 @@ func validate(cfg Config) error {
 	}
 	if len(cfg.HTTP.AllowedMethods) == 0 {
 		return fmt.Errorf("http allowed methods is required")
+	}
+	if cfg.Postgres.URL == "" {
+		return fmt.Errorf("postgres URL is required")
+	}
+	if cfg.Postgres.Timeout <= 0 {
+		return fmt.Errorf("postgres timeout must be positive")
+	}
+	if cfg.Postgres.MaxConns <= 0 {
+		return fmt.Errorf("postgres max conns must be positive")
+	}
+	if cfg.Postgres.MinConns < 0 {
+		return fmt.Errorf("postgres min conns must be non-negative")
+	}
+	if cfg.Postgres.MinConns > cfg.Postgres.MaxConns {
+		return fmt.Errorf("postgres min conns must be less than or equal to max conns")
+	}
+	if cfg.Postgres.MaxConnIdleTime <= 0 {
+		return fmt.Errorf("postgres max conn idle time must be positive")
 	}
 	return nil
 }
