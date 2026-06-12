@@ -40,9 +40,9 @@ func (h *Handler) GetAnalytics(w nethttp.ResponseWriter, r *nethttp.Request) {
 		return
 	}
 
-	link, err := h.linksService.ResolveLink(ctx, code)
+	link, err := h.linksService.GetLink(ctx, code)
 	if err != nil {
-		responseHandler.ErrorResponse(err, "failed to resolve short link for analytics")
+		responseHandler.ErrorResponse(err, "failed to get short link for analytics")
 		return
 	}
 

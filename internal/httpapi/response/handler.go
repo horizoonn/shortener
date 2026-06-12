@@ -25,6 +25,10 @@ func (h *HTTPResponseHandler) JSONResponse(responseBody any, statusCode int) {
 	WriteJSON(h.w, statusCode, responseBody)
 }
 
+func (h *HTTPResponseHandler) NoContentResponse() {
+	h.w.WriteHeader(http.StatusNoContent)
+}
+
 func (h *HTTPResponseHandler) ErrorResponse(err error, message string) {
 	statusCode := http.StatusInternalServerError
 	publicMessage := "internal server error"
