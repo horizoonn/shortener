@@ -3,13 +3,14 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/horizoonn/shortener/internal/analytics"
 	core_errors "github.com/horizoonn/shortener/internal/errors"
 )
 
-func (r *Repository) RecentClicks(ctx context.Context, linkID uuid.UUID, limit int) ([]analytics.Click, error) {
+func (r *Repository) RecentClicks(ctx context.Context, linkID uuid.UUID, filter analytics.ClickFilter, limit int) ([]analytics.Click, error) {
 	ctx, cancel := context.WithTimeout(ctx, r.pool.OpTimeout())
 	defer cancel()
 
@@ -23,15 +24,19 @@ func (r *Repository) RecentClicks(ctx context.Context, linkID uuid.UUID, limit i
 		return nil, fmt.Errorf("limit must be less than or equal to %d: %w", analytics.MaxRecentClicksLimit, core_errors.ErrInvalidArgument)
 	}
 
-	query := `
+	var queryBuilder strings.Builder
+	queryBuilder.WriteString(`
 	SELECT id, link_id, clicked_at, user_agent, referer, ip::text
 	FROM clicks
-	WHERE link_id=$1
+	`)
+	args := appendClickFilter(&queryBuilder, nil, linkID, filter)
+	args = append(args, limit)
+	queryBuilder.WriteString(fmt.Sprintf(`
 	ORDER BY clicked_at DESC
-	LIMIT $2;
-	`
+	LIMIT $%d;
+	`, len(args)))
 
-	rows, err := r.pool.Query(ctx, query, linkID, limit)
+	rows, err := r.pool.Query(ctx, queryBuilder.String(), args...)
 	if err != nil {
 		return nil, fmt.Errorf("query recent clicks: %w", err)
 	}

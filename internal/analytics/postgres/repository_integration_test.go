@@ -141,7 +141,7 @@ func TestRepositoryRecentClicks(t *testing.T) {
 	insertClickAt(t, link.ID, time.Date(2026, 6, 2, 10, 0, 0, 0, time.UTC), "mid-agent", nil, nil)
 	insertClickAt(t, link.ID, time.Date(2026, 6, 3, 10, 0, 0, 0, time.UTC), "new-agent", &referer, &ip)
 
-	recentClicks, err := clickRepository.RecentClicks(context.Background(), link.ID, 2)
+	recentClicks, err := clickRepository.RecentClicks(context.Background(), link.ID, analytics.ClickFilter{}, 2)
 	if err != nil {
 		t.Fatalf("recent clicks: %v", err)
 	}
@@ -160,6 +160,37 @@ func TestRepositoryRecentClicks(t *testing.T) {
 	}
 	if recentClicks[0].IP == nil || *recentClicks[0].IP != ip {
 		t.Fatalf("expected IP %q, got %v", ip, recentClicks[0].IP)
+	}
+}
+
+func TestRepositoryRecentClicksUsesDateFilter(t *testing.T) {
+	cleanAnalyticsDB(t)
+
+	linkRepository := linkspg.NewRepository(analyticsTestDB.Pool)
+	clickRepository := analyticspg.NewRepository(analyticsTestDB.Pool)
+	link := createAnalyticsTestLink(t, linkRepository, "recentflt")
+
+	insertClickAt(t, link.ID, time.Date(2026, 5, 31, 23, 59, 59, 0, time.UTC), "before", nil, nil)
+	insertClickAt(t, link.ID, time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC), "inside-old", nil, nil)
+	insertClickAt(t, link.ID, time.Date(2026, 6, 2, 10, 0, 0, 0, time.UTC), "inside-new", nil, nil)
+	insertClickAt(t, link.ID, time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC), "after", nil, nil)
+
+	from := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
+	recentClicks, err := clickRepository.RecentClicks(
+		context.Background(),
+		link.ID,
+		analytics.ClickFilter{From: &from, To: &to},
+		10,
+	)
+	if err != nil {
+		t.Fatalf("recent clicks: %v", err)
+	}
+	if len(recentClicks) != 2 {
+		t.Fatalf("expected 2 filtered recent clicks, got %d", len(recentClicks))
+	}
+	if recentClicks[0].UserAgent != "inside-new" || recentClicks[1].UserAgent != "inside-old" {
+		t.Fatalf("unexpected filtered recent clicks: %+v", recentClicks)
 	}
 }
 
@@ -202,7 +233,7 @@ func TestRepositoryRecentClicksRejectsInvalidLimit(t *testing.T) {
 
 	clickRepository := analyticspg.NewRepository(analyticsTestDB.Pool)
 
-	_, err := clickRepository.RecentClicks(context.Background(), uuid.New(), 0)
+	_, err := clickRepository.RecentClicks(context.Background(), uuid.New(), analytics.ClickFilter{}, 0)
 	if !errors.Is(err, core_errors.ErrInvalidArgument) {
 		t.Fatalf("expected invalid argument, got %v", err)
 	}

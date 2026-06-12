@@ -18,7 +18,7 @@ type fakeClicksRepository struct {
 	countClicksByDay       func(ctx context.Context, linkID uuid.UUID, filter analytics.ClickFilter) ([]analytics.TimeBucketCount, error)
 	countClicksByMonth     func(ctx context.Context, linkID uuid.UUID, filter analytics.ClickFilter) ([]analytics.TimeBucketCount, error)
 	countClicksByUserAgent func(ctx context.Context, linkID uuid.UUID, filter analytics.ClickFilter) ([]analytics.UserAgentCount, error)
-	recentClicks           func(ctx context.Context, linkID uuid.UUID, limit int) ([]analytics.Click, error)
+	recentClicks           func(ctx context.Context, linkID uuid.UUID, filter analytics.ClickFilter, limit int) ([]analytics.Click, error)
 }
 
 func (r fakeClicksRepository) SaveClick(ctx context.Context, click analytics.Click) (analytics.Click, error) {
@@ -61,12 +61,12 @@ func (r fakeClicksRepository) CountClicksByUserAgent(ctx context.Context, linkID
 	return r.countClicksByUserAgent(ctx, linkID, filter)
 }
 
-func (r fakeClicksRepository) RecentClicks(ctx context.Context, linkID uuid.UUID, limit int) ([]analytics.Click, error) {
+func (r fakeClicksRepository) RecentClicks(ctx context.Context, linkID uuid.UUID, filter analytics.ClickFilter, limit int) ([]analytics.Click, error) {
 	if r.recentClicks == nil {
 		return nil, fmt.Errorf("recent clicks not implemented")
 	}
 
-	return r.recentClicks(ctx, linkID, limit)
+	return r.recentClicks(ctx, linkID, filter, limit)
 }
 
 func TestServiceRecordClickSuccess(t *testing.T) {
@@ -158,9 +158,12 @@ func TestServiceGetLinkAnalyticsSuccess(t *testing.T) {
 			assertAnalyticsRequest(t, gotLinkID, linkID, gotFilter, filter)
 			return []analytics.UserAgentCount{{UserAgent: "Mozilla/5.0", Count: 30}}, nil
 		},
-		recentClicks: func(_ context.Context, gotLinkID uuid.UUID, limit int) ([]analytics.Click, error) {
+		recentClicks: func(_ context.Context, gotLinkID uuid.UUID, gotFilter analytics.ClickFilter, limit int) ([]analytics.Click, error) {
 			if gotLinkID != linkID {
 				t.Fatalf("expected link ID %s, got %s", linkID, gotLinkID)
+			}
+			if gotFilter != filter {
+				t.Fatalf("expected filter %+v, got %+v", filter, gotFilter)
 			}
 			if limit != 20 {
 				t.Fatalf("expected limit 20, got %d", limit)

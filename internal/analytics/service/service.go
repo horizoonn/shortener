@@ -21,7 +21,7 @@ type ClicksRepository interface {
 	CountClicksByDay(ctx context.Context, linkID uuid.UUID, filter analytics.ClickFilter) ([]analytics.TimeBucketCount, error)
 	CountClicksByMonth(ctx context.Context, linkID uuid.UUID, filter analytics.ClickFilter) ([]analytics.TimeBucketCount, error)
 	CountClicksByUserAgent(ctx context.Context, linkID uuid.UUID, filter analytics.ClickFilter) ([]analytics.UserAgentCount, error)
-	RecentClicks(ctx context.Context, linkID uuid.UUID, limit int) ([]analytics.Click, error)
+	RecentClicks(ctx context.Context, linkID uuid.UUID, filter analytics.ClickFilter, limit int) ([]analytics.Click, error)
 }
 
 func NewService(clicksRepository ClicksRepository) *Service {
@@ -107,7 +107,7 @@ func (s *Service) GetLinkAnalytics(
 		return analytics.LinkAnalytics{}, fmt.Errorf("count clicks by user agent: %w", err)
 	}
 
-	recentClicks, err := s.clicksRepository.RecentClicks(ctx, linkID, recentLimit)
+	recentClicks, err := s.clicksRepository.RecentClicks(ctx, linkID, filter, recentLimit)
 	if err != nil {
 		return analytics.LinkAnalytics{}, fmt.Errorf("get recent clicks: %w", err)
 	}
