@@ -163,7 +163,7 @@ paths:
   /api/v1/analytics/{code}:
     get:
       summary: Get click analytics
-      description: Returns total clicks, time buckets, user-agent aggregation, and recent clicks for a short link.
+      description: Returns total clicks, time buckets, user-agent aggregation, and recent clicks for an existing short link, including soft-disabled links.
       parameters:
         - name: code
           in: path
@@ -201,6 +201,37 @@ paths:
                 $ref: "#/components/schemas/AnalyticsResponse"
         "400":
           description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Short link not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/v1/links/{code}:
+    delete:
+      summary: Disable a short URL
+      description: Soft-disables a short link, invalidates its Redis cache entry, and keeps historical analytics available.
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Short link disabled
+        "400":
+          description: Invalid short code
           content:
             application/json:
               schema:

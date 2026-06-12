@@ -83,6 +83,7 @@ make shortener-deploy
 | `POST` | `/api/v1/shorten` | Implemented. |
 | `GET` | `/s/{code}` | Implemented. |
 | `GET` | `/api/v1/analytics/{code}` | Implemented. |
+| `DELETE` | `/api/v1/links/{code}` | Implemented. Soft-disables a short link and invalidates its cache entry. |
 
 ## Examples
 
@@ -110,6 +111,10 @@ curl -i http://localhost:8080/s/abc1234
 curl 'http://localhost:8080/api/v1/analytics/abc1234?from=2026-06-01&to=2026-06-12&recent_limit=20'
 ```
 
+```bash
+curl -i -X DELETE http://localhost:8080/api/v1/links/abc1234
+```
+
 ## Environment Variables
 
 | Variable | Default | Description |
@@ -126,7 +131,7 @@ curl 'http://localhost:8080/api/v1/analytics/abc1234?from=2026-06-01&to=2026-06-
 | `SHORTENER_HTTP_WRITE_TIMEOUT` | `10s` | Write timeout. |
 | `SHORTENER_HTTP_IDLE_TIMEOUT` | `60s` | Idle timeout. |
 | `SHORTENER_HTTP_ALLOWED_ORIGINS` | `*` | Comma-separated CORS origins. |
-| `SHORTENER_HTTP_ALLOWED_METHODS` | `GET,POST,OPTIONS` | Comma-separated CORS methods. |
+| `SHORTENER_HTTP_ALLOWED_METHODS` | `GET,POST,DELETE,OPTIONS` | Comma-separated CORS methods. |
 | `SHORTENER_DATABASE_URL` | local PostgreSQL URL | PostgreSQL connection string. |
 | `SHORTENER_POSTGRES_TIMEOUT` | `5s` | PostgreSQL operation timeout. |
 | `SHORTENER_POSTGRES_MAX_CONNS` | `10` | PostgreSQL pool max connections. |
