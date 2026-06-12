@@ -9,13 +9,13 @@ import (
 )
 
 type Config struct {
-	Environment string `envconfig:"ENVIRONMENT" default:"development"`
-	RawTimeZone string `envconfig:"TIME_ZONE" default:"UTC"`
-	TimeZone    *time.Location
+	Environment string         `envconfig:"ENVIRONMENT" default:"development"`
+	RawTimeZone string         `envconfig:"TIME_ZONE" default:"UTC"`
+	TimeZone    *time.Location `ignored:"true"`
 
-	Logger   LoggerConfig
-	HTTP     HTTPConfig
-	Postgres PostgresConfig
+	Logger   LoggerConfig   `ignored:"true"`
+	HTTP     HTTPConfig     `ignored:"true"`
+	Postgres PostgresConfig `ignored:"true"`
 
 	RedisAddr     string        `envconfig:"REDIS_ADDR" default:"localhost:6379"`
 	RedisPassword string        `envconfig:"REDIS_PASSWORD" default:""`
@@ -51,6 +51,15 @@ func Load() (Config, error) {
 	var cfg Config
 	if err := envconfig.Process("SHORTENER", &cfg); err != nil {
 		return Config{}, fmt.Errorf("process env config: %w", err)
+	}
+	if err := envconfig.Process("SHORTENER", &cfg.Logger); err != nil {
+		return Config{}, fmt.Errorf("process logger env config: %w", err)
+	}
+	if err := envconfig.Process("SHORTENER", &cfg.HTTP); err != nil {
+		return Config{}, fmt.Errorf("process HTTP env config: %w", err)
+	}
+	if err := envconfig.Process("SHORTENER", &cfg.Postgres); err != nil {
+		return Config{}, fmt.Errorf("process postgres env config: %w", err)
 	}
 
 	zone, err := time.LoadLocation(cfg.RawTimeZone)
