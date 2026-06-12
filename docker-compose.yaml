@@ -39,6 +39,7 @@ services:
       - .env
     environment:
       SHORTENER_HTTP_ADDR: ":8080"
+      SHORTENER_HTTP_PUBLIC_BASE_URL: http://localhost:${SHORTENER_PORT:-8080}
       SHORTENER_LOG_FOLDER: /app/.out/logs
       SHORTENER_DATABASE_URL: postgres://${POSTGRES_USER:-shortener}:${POSTGRES_PASSWORD:-shortener}@postgres:5432/${POSTGRES_DB:-shortener}?sslmode=disable
       SHORTENER_POSTGRES_TIMEOUT: 5s
