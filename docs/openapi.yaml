@@ -116,7 +116,7 @@ paths:
   /s/{code}:
     get:
       summary: Redirect to the original URL
-      description: Planned endpoint.
+      description: Resolves a short link, records click analytics best-effort, and redirects to the original URL.
       parameters:
         - name: code
           in: path
@@ -124,8 +124,32 @@ paths:
           schema:
             type: string
       responses:
-        "501":
-          description: Not implemented yet
+        "302":
+          description: Redirect to the original URL
+          headers:
+            Location:
+              description: Original URL
+              schema:
+                type: string
+                format: uri
+        "400":
+          description: Invalid short code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Short link not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /api/v1/analytics/{code}:
     get:
       summary: Get click analytics
