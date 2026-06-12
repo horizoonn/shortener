@@ -1,6 +1,6 @@
 # Shortener
 
-Shortener is a Go backend service for URL shortening and click analytics. This bootstrap stage includes the project skeleton, configuration, file and stdout logging, HTTP wiring, Docker environment, and `/healthz`.
+Shortener is a Go backend service for URL shortening and click analytics. It provides URL creation, redirect tracking, click aggregation, Redis-backed link resolution cache, and a small static UI.
 
 ## Stack
 
@@ -33,8 +33,16 @@ docs/openapi.yaml          OpenAPI contract
 ```bash
 cp .env.example .env
 make env-up
+make migrate-up
 make shortener-run
 curl http://localhost:8080/healthz
+```
+
+For a fully containerized run, use:
+
+```bash
+cp .env.example .env
+make shortener-deploy
 ```
 
 ## Makefile Commands
@@ -46,8 +54,13 @@ curl http://localhost:8080/healthz
 | `make fmt-check` | Check Go formatting. |
 | `make vet` | Run `go vet ./...`. |
 | `make test` | Run `go test ./...`. |
+| `make test-cover` | Run unit tests with coverage summary. |
+| `make test-cover-func` | Show unit test coverage by function. |
+| `make test-cover-html` | Write unit test coverage HTML report. |
 | `make test-race` | Run tests with the race detector. |
 | `make test-integration` | Run integration tests with the `integration` tag. |
+| `make test-integration-cover` | Show integration coverage by function. |
+| `make test-integration-cover-html` | Write integration coverage HTML report. |
 | `make check` | Run formatting, vet, and unit tests. |
 | `make check-all` | Run all checks. |
 | `make env-up` | Start PostgreSQL and Redis. |

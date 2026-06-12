@@ -94,7 +94,7 @@ func New(ctx context.Context, cfg config.Config, log *logger.Logger) (*App, erro
 	apiVersionRouterV1 := server.NewAPIVersionRouter(server.APIVersion1)
 	apiVersionRouterV1.AddRoutes(linksHTTPHandler.Routes()...)
 
-	httpServer.RegisterRoutes(server.HealthRoute(), readyRoute(postgresPool))
+	httpServer.RegisterRoutes(server.HealthRoute(), readyRoute(postgresPool), staticUIRoute())
 	httpServer.RegisterRoutes(linksHTTPHandler.RedirectRoutes()...)
 	httpServer.RegisterAPIRouters(apiVersionRouterV1)
 
@@ -122,9 +122,19 @@ func (a *App) Run(ctx context.Context) error {
 	return nil
 }
 
+func staticUIRoute() server.Route {
+	fileServer := http.FileServer(http.Dir("web/public"))
+
+	return server.Route{
+		Method:  http.MethodGet,
+		Path:    "/{$}",
+		Handler: fileServer.ServeHTTP,
+	}
+}
+
 func readyRoute(postgresPool *pgx_pool.Pool) server.Route {
 	return server.Route{
-		Method: "GET",
+		Method: http.MethodGet,
 		Path:   "/readyz",
 		Handler: func(w http.ResponseWriter, r *http.Request) {
 			ctx, cancel := context.WithTimeout(r.Context(), postgresPool.OpTimeout())

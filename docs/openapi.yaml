@@ -5,6 +5,16 @@ info:
 servers:
   - url: http://localhost:8080
 paths:
+  /:
+    get:
+      summary: Static UI
+      responses:
+        "200":
+          description: HTML UI
+          content:
+            text/html:
+              schema:
+                type: string
   /healthz:
     get:
       summary: Health check
