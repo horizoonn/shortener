@@ -66,6 +66,7 @@ curl http://localhost:8080/healthz
 | Method | Path | Status |
 | --- | --- | --- |
 | `GET` | `/healthz` | Implemented. |
+| `GET` | `/readyz` | Implemented. |
 | `POST` | `/api/v1/shorten` | Planned. |
 | `GET` | `/s/{code}` | Planned. |
 | `GET` | `/api/v1/analytics/{code}` | Planned. |

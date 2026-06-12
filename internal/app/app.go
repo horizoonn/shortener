@@ -3,10 +3,12 @@ package app
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	analytics_postgres "github.com/horizoonn/shortener/internal/analytics/postgres"
 	"github.com/horizoonn/shortener/internal/config"
 	"github.com/horizoonn/shortener/internal/httpapi/middleware"
+	"github.com/horizoonn/shortener/internal/httpapi/response"
 	"github.com/horizoonn/shortener/internal/httpapi/server"
 	links_postgres "github.com/horizoonn/shortener/internal/links/postgres"
 	"github.com/horizoonn/shortener/internal/logger"
@@ -50,7 +52,7 @@ func New(ctx context.Context, cfg config.Config, log *logger.Logger) (*App, erro
 		postgresPool.Close()
 		return nil, fmt.Errorf("init HTTP server: %w", err)
 	}
-	httpServer.RegisterRoutes(server.HealthRoute())
+	httpServer.RegisterRoutes(server.HealthRoute(), readyRoute(postgresPool))
 
 	return &App{
 		httpServer:          httpServer,
@@ -70,4 +72,24 @@ func (a *App) Run(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func readyRoute(postgresPool *pgx_pool.Pool) server.Route {
+	return server.Route{
+		Method: "GET",
+		Path:   "/readyz",
+		Handler: func(w http.ResponseWriter, r *http.Request) {
+			ctx, cancel := context.WithTimeout(r.Context(), postgresPool.OpTimeout())
+			defer cancel()
+
+			if err := postgresPool.Ping(ctx); err != nil {
+				response.WriteError(w, http.StatusServiceUnavailable, "service is not ready", "not_ready")
+				return
+			}
+
+			response.WriteJSON(w, http.StatusOK, map[string]string{
+				"status": "ready",
+			})
+		},
+	}
 }

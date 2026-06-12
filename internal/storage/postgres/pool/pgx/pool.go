@@ -31,14 +31,6 @@ func NewPool(ctx context.Context, cfg config.PostgresConfig) (*Pool, error) {
 		return nil, fmt.Errorf("create pgxpool with config: %w", err)
 	}
 
-	pingCtx, cancel := context.WithTimeout(ctx, cfg.Timeout)
-	defer cancel()
-
-	if err := pool.Ping(pingCtx); err != nil {
-		pool.Close()
-		return nil, fmt.Errorf("ping pgxpool: %w", err)
-	}
-
 	return &Pool{
 		Pool:      pool,
 		opTimeout: cfg.Timeout,
@@ -67,6 +59,10 @@ func (p *Pool) Exec(ctx context.Context, sql string, arguments ...any) (pool.Com
 	}
 
 	return pgxCommandTag{tag}, nil
+}
+
+func (p *Pool) Ping(ctx context.Context) error {
+	return mapErrors(p.Pool.Ping(ctx))
 }
 
 func (p *Pool) OpTimeout() time.Duration {
