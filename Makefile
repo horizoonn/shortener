@@ -10,8 +10,13 @@ CMD := ./cmd/shortener
 ENV_SERVICES := postgres redis
 MIGRATIONS_DIR := migrations
 DATABASE_URL ?= $(SHORTENER_DATABASE_URL)
+COVERAGE_DIR := .out/coverage
+COVERAGE_PROFILE := $(COVERAGE_DIR)/coverage.out
+COVERAGE_HTML := $(COVERAGE_DIR)/coverage.html
+INTEGRATION_COVERAGE_PROFILE := $(COVERAGE_DIR)/integration_coverage.out
+INTEGRATION_COVERAGE_HTML := $(COVERAGE_DIR)/integration_coverage.html
 
-.PHONY: help fmt fmt-check vet test test-race test-integration check check-all env-up env-down env-cleanup migrate-create migrate-up migrate-down shortener-run shortener-deploy shortener-undeploy shortener-logs
+.PHONY: help fmt fmt-check vet test test-cover test-cover-profile test-cover-func test-cover-html test-race test-integration test-integration-cover test-integration-cover-html check check-all env-up env-down env-cleanup migrate-create migrate-up migrate-down shortener-run shortener-deploy shortener-undeploy shortener-logs
 
 help:
 	@awk 'BEGIN {FS = ":.*##"; printf "Available targets:\n"} /^[a-zA-Z0-9_-]+:.*##/ {printf "  %-22s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -33,11 +38,36 @@ vet: ## Run go vet.
 test: ## Run unit tests.
 	go test ./...
 
+test-cover: ## Run unit tests with coverage summary.
+	go test ./... -cover
+
+test-cover-profile: ## Write unit test coverage profile.
+	mkdir -p $(COVERAGE_DIR)
+	go test ./... -coverprofile=$(COVERAGE_PROFILE)
+
+test-cover-func: test-cover-profile ## Show unit test coverage by function.
+	go tool cover -func=$(COVERAGE_PROFILE)
+
+test-cover-html: test-cover-profile ## Write unit test coverage HTML report.
+	go tool cover -html=$(COVERAGE_PROFILE) -o $(COVERAGE_HTML)
+	@echo "Coverage HTML: $(COVERAGE_HTML)"
+
 test-race: ## Run unit tests with race detector.
 	go test -race ./...
 
 test-integration: ## Run integration tests.
 	go test -tags=integration ./...
+
+test-integration-cover: ## Write integration coverage profile and show function coverage.
+	mkdir -p $(COVERAGE_DIR)
+	go test -tags=integration ./... -coverprofile=$(INTEGRATION_COVERAGE_PROFILE)
+	go tool cover -func=$(INTEGRATION_COVERAGE_PROFILE)
+
+test-integration-cover-html: ## Write integration coverage HTML report.
+	mkdir -p $(COVERAGE_DIR)
+	go test -tags=integration ./... -coverprofile=$(INTEGRATION_COVERAGE_PROFILE)
+	go tool cover -html=$(INTEGRATION_COVERAGE_PROFILE) -o $(INTEGRATION_COVERAGE_HTML)
+	@echo "Integration coverage HTML: $(INTEGRATION_COVERAGE_HTML)"
 
 check: fmt-check vet test ## Run fast local checks.
 
