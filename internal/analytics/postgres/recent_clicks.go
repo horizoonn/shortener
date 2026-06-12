@@ -19,6 +19,9 @@ func (r *Repository) RecentClicks(ctx context.Context, linkID uuid.UUID, limit i
 	if limit <= 0 {
 		return nil, fmt.Errorf("limit must be positive: %w", core_errors.ErrInvalidArgument)
 	}
+	if limit > analytics.MaxRecentClicksLimit {
+		return nil, fmt.Errorf("limit must be less than or equal to %d: %w", analytics.MaxRecentClicksLimit, core_errors.ErrInvalidArgument)
+	}
 
 	query := `
 	SELECT id, link_id, clicked_at, user_agent, referer, ip::text

@@ -15,6 +15,8 @@ type Click struct {
 	IP        *string
 }
 
+const MaxRecentClicksLimit = 500
+
 type ClickFilter struct {
 	From *time.Time
 	To   *time.Time
