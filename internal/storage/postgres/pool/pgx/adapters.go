@@ -12,10 +12,23 @@ import (
 const (
 	postgresUniqueViolationCode     = "23505"
 	postgresForeignKeyViolationCode = "23503"
+	postgresInvalidTextCode         = "22P02"
 )
 
 type pgxRows struct {
 	pgx.Rows
+}
+
+func (r pgxRows) Scan(dest ...any) error {
+	if err := r.Rows.Scan(dest...); err != nil {
+		return mapErrors(err)
+	}
+
+	return nil
+}
+
+func (r pgxRows) Err() error {
+	return mapErrors(r.Rows.Err())
 }
 
 type pgxRow struct {
@@ -50,6 +63,8 @@ func mapErrors(err error) error {
 			return fmt.Errorf("%v: %w", err, pool.ErrUniqueViolation)
 		case postgresForeignKeyViolationCode:
 			return fmt.Errorf("%v: %w", err, pool.ErrViolatesForeignKey)
+		case postgresInvalidTextCode:
+			return fmt.Errorf("%v: %w", err, pool.ErrInvalidInput)
 		}
 	}
 

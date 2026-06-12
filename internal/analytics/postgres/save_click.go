@@ -46,6 +46,9 @@ func (r *Repository) SaveClick(ctx context.Context, click analytics.Click) (anal
 		if errors.Is(err, pool.ErrViolatesForeignKey) {
 			return analytics.Click{}, fmt.Errorf("link with id=%q: %w", click.LinkID, core_errors.ErrInvalidArgument)
 		}
+		if errors.Is(err, pool.ErrInvalidInput) {
+			return analytics.Click{}, fmt.Errorf("invalid click input: %w", core_errors.ErrInvalidArgument)
+		}
 
 		return analytics.Click{}, fmt.Errorf("scan saved click: %w", err)
 	}
