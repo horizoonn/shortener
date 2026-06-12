@@ -149,6 +149,65 @@ func TestRepositoryGetLinkByCodeNotFound(t *testing.T) {
 	}
 }
 
+func TestRepositoryDisableLink(t *testing.T) {
+	cleanLinksDB(t)
+
+	repository := linkspg.NewRepository(linksTestDB.Pool)
+	created := createTestLink(t, repository, "disable1")
+
+	disabled, err := repository.DisableLink(context.Background(), created.Code)
+	if err != nil {
+		t.Fatalf("disable link: %v", err)
+	}
+	if disabled.DisabledAt == nil {
+		t.Fatal("expected disabled_at to be set")
+	}
+	if disabled.ID != created.ID {
+		t.Fatalf("expected disabled link id %s, got %s", created.ID, disabled.ID)
+	}
+
+	got, err := repository.GetLinkByCode(context.Background(), created.Code)
+	if err != nil {
+		t.Fatalf("get disabled link by code: %v", err)
+	}
+	if got.DisabledAt == nil || !got.DisabledAt.Equal(*disabled.DisabledAt) {
+		t.Fatalf("expected persisted disabled_at %v, got %v", disabled.DisabledAt, got.DisabledAt)
+	}
+}
+
+func TestRepositoryDisableLinkIdempotent(t *testing.T) {
+	cleanLinksDB(t)
+
+	repository := linkspg.NewRepository(linksTestDB.Pool)
+	created := createTestLink(t, repository, "disable2")
+
+	firstDisabled, err := repository.DisableLink(context.Background(), created.Code)
+	if err != nil {
+		t.Fatalf("disable link first time: %v", err)
+	}
+	secondDisabled, err := repository.DisableLink(context.Background(), created.Code)
+	if err != nil {
+		t.Fatalf("disable link second time: %v", err)
+	}
+	if firstDisabled.DisabledAt == nil || secondDisabled.DisabledAt == nil {
+		t.Fatalf("expected disabled_at to be set: first=%v second=%v", firstDisabled.DisabledAt, secondDisabled.DisabledAt)
+	}
+	if !secondDisabled.DisabledAt.Equal(*firstDisabled.DisabledAt) {
+		t.Fatalf("expected disabled_at to stay idempotent, first=%s second=%s", *firstDisabled.DisabledAt, *secondDisabled.DisabledAt)
+	}
+}
+
+func TestRepositoryDisableLinkNotFound(t *testing.T) {
+	cleanLinksDB(t)
+
+	repository := linkspg.NewRepository(linksTestDB.Pool)
+
+	_, err := repository.DisableLink(context.Background(), "missing1")
+	if !errors.Is(err, core_errors.ErrNotFound) {
+		t.Fatalf("expected not found, got %v", err)
+	}
+}
+
 func TestRepositoryGetLinkByID(t *testing.T) {
 	cleanLinksDB(t)
 

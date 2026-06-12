@@ -13,8 +13,9 @@ import (
 )
 
 type fakeLinksRepository struct {
-	createLink func(ctx context.Context, link links.Link) (links.Link, error)
-	getLink    func(ctx context.Context, code string) (links.Link, error)
+	createLink  func(ctx context.Context, link links.Link) (links.Link, error)
+	getLink     func(ctx context.Context, code string) (links.Link, error)
+	disableLink func(ctx context.Context, code string) (links.Link, error)
 }
 
 func (r fakeLinksRepository) CreateLink(ctx context.Context, link links.Link) (links.Link, error) {
@@ -31,6 +32,14 @@ func (r fakeLinksRepository) GetLinkByCode(ctx context.Context, code string) (li
 	}
 
 	return r.getLink(ctx, code)
+}
+
+func (r fakeLinksRepository) DisableLink(ctx context.Context, code string) (links.Link, error) {
+	if r.disableLink == nil {
+		return links.Link{}, fmt.Errorf("disable link not implemented")
+	}
+
+	return r.disableLink(ctx, code)
 }
 
 type fakeCodeGenerator struct {
@@ -537,5 +546,140 @@ func TestServiceResolveLinkCachedDisabledDeletesCache(t *testing.T) {
 	}
 	if cache.deleteCalls != 1 {
 		t.Fatalf("expected one cache delete call, got %d", cache.deleteCalls)
+	}
+}
+
+func TestServiceGetLinkReturnsDisabledLink(t *testing.T) {
+	t.Parallel()
+
+	disabledAt := time.Now().UTC()
+	expectedLink := links.Link{
+		ID:          uuid.New(),
+		Code:        "disabled1",
+		OriginalURL: "https://example.com",
+		DisabledAt:  &disabledAt,
+	}
+	cache := &fakeLinkCache{
+		getLink: func(_ context.Context, _ string) (links.Link, error) {
+			t.Fatal("cache must not be called when getting link metadata")
+			return links.Link{}, nil
+		},
+	}
+	repository := fakeLinksRepository{
+		getLink: func(_ context.Context, code string) (links.Link, error) {
+			if code != expectedLink.Code {
+				t.Fatalf("expected code %q, got %q", expectedLink.Code, code)
+			}
+
+			return expectedLink, nil
+		},
+	}
+	service := NewServiceWithCache(repository, &fakeCodeGenerator{}, cache)
+
+	link, err := service.GetLink(context.Background(), expectedLink.Code)
+	if err != nil {
+		t.Fatalf("get link: %v", err)
+	}
+	if link != expectedLink {
+		t.Fatalf("expected link %+v, got %+v", expectedLink, link)
+	}
+}
+
+func TestServiceGetLinkNotFound(t *testing.T) {
+	t.Parallel()
+
+	repository := fakeLinksRepository{
+		getLink: func(_ context.Context, _ string) (links.Link, error) {
+			return links.Link{}, fmt.Errorf("repository not found: %w", core_errors.ErrNotFound)
+		},
+	}
+	service := NewService(repository, &fakeCodeGenerator{})
+
+	_, err := service.GetLink(context.Background(), "missing1")
+	if !errors.Is(err, core_errors.ErrNotFound) {
+		t.Fatalf("expected not found, got %v", err)
+	}
+}
+
+func TestServiceDisableLinkSuccessDeletesCache(t *testing.T) {
+	t.Parallel()
+
+	disabledAt := time.Now().UTC()
+	expectedLink := links.Link{
+		ID:          uuid.New(),
+		Code:        "disable1",
+		OriginalURL: "https://example.com",
+		DisabledAt:  &disabledAt,
+	}
+	cache := &fakeLinkCache{}
+	repository := fakeLinksRepository{
+		disableLink: func(_ context.Context, code string) (links.Link, error) {
+			if code != expectedLink.Code {
+				t.Fatalf("expected code %q, got %q", expectedLink.Code, code)
+			}
+
+			return expectedLink, nil
+		},
+	}
+	service := NewServiceWithCache(repository, &fakeCodeGenerator{}, cache)
+
+	link, err := service.DisableLink(context.Background(), expectedLink.Code)
+	if err != nil {
+		t.Fatalf("disable link: %v", err)
+	}
+	if link != expectedLink {
+		t.Fatalf("expected link %+v, got %+v", expectedLink, link)
+	}
+	if cache.deleteCalls != 1 {
+		t.Fatalf("expected one cache delete call, got %d", cache.deleteCalls)
+	}
+}
+
+func TestServiceDisableLinkIgnoresCacheDeleteError(t *testing.T) {
+	t.Parallel()
+
+	cache := &fakeLinkCache{
+		deleteLink: func(_ context.Context, _ string) error {
+			return fmt.Errorf("redis delete failed")
+		},
+	}
+	repository := fakeLinksRepository{
+		disableLink: func(_ context.Context, code string) (links.Link, error) {
+			disabledAt := time.Now().UTC()
+			return links.Link{
+				ID:          uuid.New(),
+				Code:        code,
+				OriginalURL: "https://example.com",
+				DisabledAt:  &disabledAt,
+			}, nil
+		},
+	}
+	service := NewServiceWithCache(repository, &fakeCodeGenerator{}, cache)
+
+	if _, err := service.DisableLink(context.Background(), "disable1"); err != nil {
+		t.Fatalf("disable link must ignore cache delete error: %v", err)
+	}
+	if cache.deleteCalls != 1 {
+		t.Fatalf("expected one cache delete call, got %d", cache.deleteCalls)
+	}
+}
+
+func TestServiceDisableLinkNotFound(t *testing.T) {
+	t.Parallel()
+
+	cache := &fakeLinkCache{}
+	repository := fakeLinksRepository{
+		disableLink: func(_ context.Context, _ string) (links.Link, error) {
+			return links.Link{}, fmt.Errorf("repository not found: %w", core_errors.ErrNotFound)
+		},
+	}
+	service := NewServiceWithCache(repository, &fakeCodeGenerator{}, cache)
+
+	_, err := service.DisableLink(context.Background(), "missing1")
+	if !errors.Is(err, core_errors.ErrNotFound) {
+		t.Fatalf("expected not found, got %v", err)
+	}
+	if cache.deleteCalls != 0 {
+		t.Fatalf("expected no cache delete calls, got %d", cache.deleteCalls)
 	}
 }
