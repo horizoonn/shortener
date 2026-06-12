@@ -17,7 +17,8 @@ import (
 )
 
 type fakeLinksService struct {
-	createLink func(ctx context.Context, originalURL string, customAlias *string) (links.Link, error)
+	createLink  func(ctx context.Context, originalURL string, customAlias *string) (links.Link, error)
+	resolveLink func(ctx context.Context, code string) (links.Link, error)
 }
 
 func (s fakeLinksService) CreateLink(ctx context.Context, originalURL string, customAlias *string) (links.Link, error) {
@@ -26,6 +27,14 @@ func (s fakeLinksService) CreateLink(ctx context.Context, originalURL string, cu
 	}
 
 	return s.createLink(ctx, originalURL, customAlias)
+}
+
+func (s fakeLinksService) ResolveLink(ctx context.Context, code string) (links.Link, error) {
+	if s.resolveLink == nil {
+		return links.Link{}, fmt.Errorf("resolve link not implemented")
+	}
+
+	return s.resolveLink(ctx, code)
 }
 
 func TestHandlerCreateLinkGeneratedSuccess(t *testing.T) {
