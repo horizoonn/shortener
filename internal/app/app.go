@@ -12,10 +12,12 @@ import (
 	"github.com/horizoonn/shortener/internal/httpapi/server"
 	"github.com/horizoonn/shortener/internal/links"
 	links_postgres "github.com/horizoonn/shortener/internal/links/postgres"
+	links_redis "github.com/horizoonn/shortener/internal/links/redis"
 	links_service "github.com/horizoonn/shortener/internal/links/service"
 	links_transport_http "github.com/horizoonn/shortener/internal/links/transport/http"
 	"github.com/horizoonn/shortener/internal/logger"
 	pgx_pool "github.com/horizoonn/shortener/internal/storage/postgres/pool/pgx"
+	goredis "github.com/redis/go-redis/v9"
 )
 
 type App struct {
@@ -23,6 +25,7 @@ type App struct {
 	postgresPool        *pgx_pool.Pool
 	linksRepository     *links_postgres.Repository
 	analyticsRepository *analytics_postgres.Repository
+	linksCache          *links_redis.Cache
 }
 
 func New(ctx context.Context, cfg config.Config, log *logger.Logger) (*App, error) {
@@ -43,7 +46,25 @@ func New(ctx context.Context, cfg config.Config, log *logger.Logger) (*App, erro
 		postgresPool.Close()
 		return nil, fmt.Errorf("init links code generator: %w", err)
 	}
-	linksService := links_service.NewService(linksRepository, linksCodeGenerator)
+
+	log.Debug("initializing links redis cache")
+	redisClient := goredis.NewClient(&goredis.Options{
+		Addr:                  cfg.RedisAddr,
+		Password:              cfg.RedisPassword,
+		DB:                    cfg.RedisDB,
+		DialTimeout:           cfg.RedisTimeout,
+		ReadTimeout:           cfg.RedisTimeout,
+		WriteTimeout:          cfg.RedisTimeout,
+		ContextTimeoutEnabled: true,
+	})
+	linksCache, err := links_redis.NewCache(redisClient, cfg.RedisCacheTTL)
+	if err != nil {
+		_ = redisClient.Close()
+		postgresPool.Close()
+		return nil, fmt.Errorf("init links redis cache: %w", err)
+	}
+
+	linksService := links_service.NewServiceWithCache(linksRepository, linksCodeGenerator, linksCache)
 	linksHTTPHandler := links_transport_http.NewHandler(linksService, cfg.HTTP.PublicBaseURL)
 
 	log.Debug("initializing analytics repository")
@@ -59,6 +80,7 @@ func New(ctx context.Context, cfg config.Config, log *logger.Logger) (*App, erro
 		middleware.CORS(cfg.HTTP.AllowedOrigins, cfg.HTTP.AllowedMethods),
 	)
 	if err != nil {
+		_ = linksCache.Close()
 		postgresPool.Close()
 		return nil, fmt.Errorf("init HTTP server: %w", err)
 	}
@@ -73,11 +95,15 @@ func New(ctx context.Context, cfg config.Config, log *logger.Logger) (*App, erro
 		postgresPool:        postgresPool,
 		linksRepository:     linksRepository,
 		analyticsRepository: analyticsRepository,
+		linksCache:          linksCache,
 	}, nil
 }
 
 func (a *App) Run(ctx context.Context) error {
 	defer func() {
+		if a.linksCache != nil {
+			_ = a.linksCache.Close()
+		}
 		a.postgresPool.Close()
 	}()
 
