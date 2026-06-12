@@ -26,8 +26,8 @@ func (r *Repository) CreateLink(ctx context.Context, link links.Link) (links.Lin
 	}
 
 	query := `
-	INSERT INTO links (id, code, original_url, is_custom, created_at, disabled_at)
-	VALUES ($1, $2, $3, $4, $5, $6)
+	INSERT INTO links (id, code, original_url, is_custom, disabled_at)
+	VALUES ($1, $2, $3, $4, $5)
 	RETURNING id, code, original_url, is_custom, created_at, disabled_at;
 	`
 
@@ -38,7 +38,6 @@ func (r *Repository) CreateLink(ctx context.Context, link links.Link) (links.Lin
 		link.Code,
 		link.OriginalURL,
 		link.IsCustom,
-		link.CreatedAt,
 		link.DisabledAt,
 	)
 

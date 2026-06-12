@@ -26,8 +26,8 @@ func (r *Repository) SaveClick(ctx context.Context, click analytics.Click) (anal
 	}
 
 	query := `
-	INSERT INTO clicks (id, link_id, clicked_at, user_agent, referer, ip)
-	VALUES ($1, $2, $3, $4, $5, CAST($6 AS inet))
+	INSERT INTO clicks (id, link_id, user_agent, referer, ip)
+	VALUES ($1, $2, $3, $4, CAST($5 AS inet))
 	RETURNING id, link_id, clicked_at, user_agent, referer, ip::text;
 	`
 
@@ -36,7 +36,6 @@ func (r *Repository) SaveClick(ctx context.Context, click analytics.Click) (anal
 		query,
 		click.ID,
 		click.LinkID,
-		click.ClickedAt,
 		click.UserAgent,
 		click.Referer,
 		click.IP,
