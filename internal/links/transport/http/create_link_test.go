@@ -138,6 +138,37 @@ func TestHandlerCreateLinkInvalidJSON(t *testing.T) {
 	assertErrorResponse(t, rec, nethttp.StatusBadRequest, "invalid_argument")
 }
 
+func TestHandlerCreateLinkMissingOriginalURL(t *testing.T) {
+	t.Parallel()
+
+	handler := NewHandler(fakeLinksService{
+		createLink: func(_ context.Context, _ string, _ *string) (links.Link, error) {
+			t.Fatal("service should not be called for invalid request")
+			return links.Link{}, nil
+		},
+	}, "http://localhost:8080")
+
+	rec := executeCreateLinkRequest(t, handler, `{"custom_alias":"my-link"}`)
+
+	assertErrorResponse(t, rec, nethttp.StatusBadRequest, "invalid_argument")
+}
+
+func TestHandlerCreateLinkRequestBodyTooLarge(t *testing.T) {
+	t.Parallel()
+
+	handler := NewHandler(fakeLinksService{
+		createLink: func(_ context.Context, _ string, _ *string) (links.Link, error) {
+			t.Fatal("service should not be called for oversized request")
+			return links.Link{}, nil
+		},
+	}, "http://localhost:8080")
+
+	body := `{"original_url":"https://example.com/` + string(bytes.Repeat([]byte("a"), maxCreateLinkRequestBytes)) + `"}`
+	rec := executeCreateLinkRequest(t, handler, body)
+
+	assertErrorResponse(t, rec, nethttp.StatusBadRequest, "invalid_argument")
+}
+
 func TestHandlerCreateLinkInvalidURL(t *testing.T) {
 	t.Parallel()
 

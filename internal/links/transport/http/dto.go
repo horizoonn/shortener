@@ -9,8 +9,8 @@ import (
 )
 
 type CreateLinkRequest struct {
-	OriginalURL string  `json:"original_url"`
-	CustomAlias *string `json:"custom_alias"`
+	OriginalURL string  `json:"original_url" validate:"required,url"`
+	CustomAlias *string `json:"custom_alias" validate:"omitempty,min=3,max=64"`
 }
 
 type CreateLinkResponse struct {
