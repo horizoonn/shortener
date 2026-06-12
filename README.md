@@ -69,7 +69,7 @@ curl http://localhost:8080/healthz
 | `GET` | `/readyz` | Implemented. |
 | `POST` | `/api/v1/shorten` | Implemented. |
 | `GET` | `/s/{code}` | Implemented. |
-| `GET` | `/api/v1/analytics/{code}` | Planned. |
+| `GET` | `/api/v1/analytics/{code}` | Implemented. |
 
 ## Examples
 
@@ -93,10 +93,8 @@ curl -X POST http://localhost:8080/api/v1/shorten \
 curl -i http://localhost:8080/s/abc1234
 ```
 
-Future API examples:
-
 ```bash
-curl http://localhost:8080/api/v1/analytics/abc1234
+curl 'http://localhost:8080/api/v1/analytics/abc1234?from=2026-06-01&to=2026-06-12&recent_limit=20'
 ```
 
 ## Environment Variables

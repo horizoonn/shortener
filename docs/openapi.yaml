@@ -153,18 +153,152 @@ paths:
   /api/v1/analytics/{code}:
     get:
       summary: Get click analytics
-      description: Planned endpoint.
+      description: Returns total clicks, time buckets, user-agent aggregation, and recent clicks for a short link.
       parameters:
         - name: code
           in: path
           required: true
           schema:
             type: string
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          example: "2026-06-01"
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          example: "2026-06-12"
+        - name: recent_limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
       responses:
-        "501":
-          description: Not implemented yet
+        "200":
+          description: Click analytics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyticsResponse"
+        "400":
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Short link not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 components:
   schemas:
+    AnalyticsResponse:
+      type: object
+      required:
+        - code
+        - original_url
+        - total_clicks
+        - clicks_by_day
+        - clicks_by_month
+        - clicks_by_user_agent
+        - recent_clicks
+      properties:
+        code:
+          type: string
+          example: abc12345
+        original_url:
+          type: string
+          format: uri
+          example: https://example.com
+        total_clicks:
+          type: integer
+          format: int64
+          example: 42
+        clicks_by_day:
+          type: array
+          items:
+            type: object
+            required:
+              - day
+              - clicks
+            properties:
+              day:
+                type: string
+                format: date
+                example: "2026-06-12"
+              clicks:
+                type: integer
+                format: int64
+                example: 10
+        clicks_by_month:
+          type: array
+          items:
+            type: object
+            required:
+              - month
+              - clicks
+            properties:
+              month:
+                type: string
+                example: "2026-06"
+              clicks:
+                type: integer
+                format: int64
+                example: 42
+        clicks_by_user_agent:
+          type: array
+          items:
+            type: object
+            required:
+              - user_agent
+              - clicks
+            properties:
+              user_agent:
+                type: string
+                example: Mozilla/5.0
+              clicks:
+                type: integer
+                format: int64
+                example: 30
+        recent_clicks:
+          type: array
+          items:
+            type: object
+            required:
+              - clicked_at
+              - user_agent
+            properties:
+              clicked_at:
+                type: string
+                format: date-time
+              user_agent:
+                type: string
+                example: Mozilla/5.0
+              referer:
+                type: string
+                nullable: true
+                example: https://example.org
+              ip:
+                type: string
+                nullable: true
+                example: 127.0.0.1
     Error:
       type: object
       required:
