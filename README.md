@@ -53,6 +53,9 @@ make shortener-deploy
 | `make fmt` | Format Go files. |
 | `make fmt-check` | Check Go formatting. |
 | `make vet` | Run `go vet ./...`. |
+| `make lint` | Run `golangci-lint`. |
+| `make staticcheck` | Run Staticcheck. |
+| `make actionlint` | Lint GitHub Actions workflows. |
 | `make test` | Run `go test ./...`. |
 | `make test-cover` | Run unit tests with coverage summary. |
 | `make test-cover-func` | Show unit test coverage by function. |
@@ -61,7 +64,7 @@ make shortener-deploy
 | `make test-integration` | Run integration tests with the `integration` tag. |
 | `make test-integration-cover` | Show integration coverage by function. |
 | `make test-integration-cover-html` | Write integration coverage HTML report. |
-| `make check` | Run formatting, vet, and unit tests. |
+| `make check` | Run formatting, vet, golangci-lint, actionlint, and unit tests. |
 | `make check-all` | Run all checks. |
 | `make env-up` | Start PostgreSQL and Redis. |
 | `make env-down` | Stop Docker Compose services. |
@@ -73,6 +76,10 @@ make shortener-deploy
 | `make shortener-deploy` | Build and run the service in Docker Compose. |
 | `make shortener-undeploy` | Stop the service container. |
 | `make shortener-logs` | Tail service logs. |
+
+## CI
+
+GitHub Actions runs fast checks, race tests, and integration tests as separate jobs. The workflow uses the Go version from `go.mod`, caches modules with `go.sum`, and keeps the default token limited to read-only repository contents.
 
 ## API
 
