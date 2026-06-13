@@ -26,7 +26,7 @@ func (r *Repository) RecentClicks(ctx context.Context, linkID uuid.UUID, filter 
 
 	var queryBuilder strings.Builder
 	queryBuilder.WriteString(`
-	SELECT id, link_id, clicked_at, user_agent, referer, ip::text
+	SELECT id, link_id, clicked_at, user_agent, referer, host(ip)
 	FROM clicks
 	`)
 	args := appendClickFilter(&queryBuilder, linkID, filter)

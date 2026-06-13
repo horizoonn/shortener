@@ -29,7 +29,7 @@ type Database struct {
 func Start(ctx context.Context) (*Database, error) {
 	container, err := postgres.Run(
 		ctx,
-		"postgres:18-alpine",
+		"postgres:17-alpine",
 		postgres.WithDatabase(databaseName),
 		postgres.WithUsername(databaseUser),
 		postgres.WithPassword(databasePass),
