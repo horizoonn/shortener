@@ -24,7 +24,7 @@ func (r *Repository) CountClicksByUserAgent(ctx context.Context, linkID uuid.UUI
 	FROM clicks
 	`)
 
-	args := appendClickFilter(&queryBuilder, nil, linkID, filter)
+	args := appendClickFilter(&queryBuilder, linkID, filter)
 	queryBuilder.WriteString(`
 	GROUP BY user_agent
 	ORDER BY COUNT(*) DESC, user_agent ASC;

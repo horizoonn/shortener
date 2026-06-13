@@ -29,12 +29,12 @@ func (r *Repository) RecentClicks(ctx context.Context, linkID uuid.UUID, filter 
 	SELECT id, link_id, clicked_at, user_agent, referer, ip::text
 	FROM clicks
 	`)
-	args := appendClickFilter(&queryBuilder, nil, linkID, filter)
+	args := appendClickFilter(&queryBuilder, linkID, filter)
 	args = append(args, limit)
-	queryBuilder.WriteString(fmt.Sprintf(`
+	fmt.Fprintf(&queryBuilder, `
 	ORDER BY clicked_at DESC
 	LIMIT $%d;
-	`, len(args)))
+	`, len(args))
 
 	rows, err := r.pool.Query(ctx, queryBuilder.String(), args...)
 	if err != nil {

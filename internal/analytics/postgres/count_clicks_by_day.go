@@ -24,7 +24,7 @@ func (r *Repository) CountClicksByDay(ctx context.Context, linkID uuid.UUID, fil
 	FROM clicks
 	`)
 
-	args := appendClickFilter(&queryBuilder, nil, linkID, filter)
+	args := appendClickFilter(&queryBuilder, linkID, filter)
 	queryBuilder.WriteString(`
 	GROUP BY bucket
 	ORDER BY bucket;

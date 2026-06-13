@@ -33,7 +33,7 @@ func DecodeAndValidateJSON(w http.ResponseWriter, r *http.Request, dst any, limi
 		err = requestValidator.Struct(dst)
 	}
 	if err != nil {
-		return fmt.Errorf("validate json body: %v: %w", err, core_errors.ErrInvalidArgument)
+		return fmt.Errorf("validate json body: %w: %w", err, core_errors.ErrInvalidArgument)
 	}
 
 	return nil
@@ -44,14 +44,14 @@ func DecodeJSON(r *http.Request, dst any) error {
 	decoder.DisallowUnknownFields()
 
 	if err := decoder.Decode(dst); err != nil {
-		return fmt.Errorf("decode json body: %v: %w", err, core_errors.ErrInvalidArgument)
+		return fmt.Errorf("decode json body: %w: %w", err, core_errors.ErrInvalidArgument)
 	}
 	if err := decoder.Decode(&struct{}{}); err != io.EOF {
 		if err == nil {
 			return fmt.Errorf("decode json body: multiple JSON values: %w", core_errors.ErrInvalidArgument)
 		}
 
-		return fmt.Errorf("decode json body trailing data: %v: %w", err, core_errors.ErrInvalidArgument)
+		return fmt.Errorf("decode json body trailing data: %w: %w", err, core_errors.ErrInvalidArgument)
 	}
 	return nil
 }

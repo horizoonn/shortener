@@ -8,8 +8,8 @@ import (
 	"github.com/horizoonn/shortener/internal/analytics"
 )
 
-func appendClickFilter(queryBuilder *strings.Builder, args []any, linkID uuid.UUID, filter analytics.ClickFilter) []any {
-	args = append(args, linkID)
+func appendClickFilter(queryBuilder *strings.Builder, linkID uuid.UUID, filter analytics.ClickFilter) []any {
+	args := []any{linkID}
 	conditions := []string{fmt.Sprintf("link_id=$%d", len(args))}
 
 	if filter.From != nil {
