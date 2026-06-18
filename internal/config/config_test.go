@@ -21,6 +21,10 @@ func TestLoadUsesDocumentedEnvironmentNames(t *testing.T) {
 	t.Setenv("SHORTENER_REDIS_DB", "2")
 	t.Setenv("SHORTENER_REDIS_TIMEOUT", "1500ms")
 	t.Setenv("SHORTENER_REDIS_CACHE_TTL", "3m")
+	t.Setenv("SHORTENER_REDIS_MISS_TTL", "45s")
+	t.Setenv("SHORTENER_HTTP_RATE_LIMIT_RPS", "5.5")
+	t.Setenv("SHORTENER_HTTP_RATE_LIMIT_BURST", "12")
+	t.Setenv("SHORTENER_HTTP_TRUSTED_PROXIES", "10.0.0.0/24,192.168.1.1/32")
 
 	cfg, err := Load()
 	if err != nil {
@@ -68,6 +72,21 @@ func TestLoadUsesDocumentedEnvironmentNames(t *testing.T) {
 	}
 	if cfg.RedisCacheTTL != 3*time.Minute {
 		t.Fatalf("expected redis cache TTL 3m, got %s", cfg.RedisCacheTTL)
+	}
+	if cfg.RedisMissTTL != 45*time.Second {
+		t.Fatalf("expected redis miss TTL 45s, got %s", cfg.RedisMissTTL)
+	}
+	if cfg.HTTP.RateLimitRPS != 5.5 {
+		t.Fatalf("expected HTTP rate limit RPS 5.5, got %f", cfg.HTTP.RateLimitRPS)
+	}
+	if cfg.HTTP.RateLimitBurst != 12 {
+		t.Fatalf("expected HTTP rate limit burst 12, got %d", cfg.HTTP.RateLimitBurst)
+	}
+	if len(cfg.HTTP.TrustedProxies) != 2 || cfg.HTTP.TrustedProxies[0] != "10.0.0.0/24" || cfg.HTTP.TrustedProxies[1] != "192.168.1.1/32" {
+		t.Fatalf("expected HTTP trusted proxies, got %v", cfg.HTTP.TrustedProxies)
+	}
+	if cfg.Postgres.TimeZone != "UTC" {
+		t.Fatalf("expected postgres time zone UTC, got %q", cfg.Postgres.TimeZone)
 	}
 }
 

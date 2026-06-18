@@ -23,6 +23,7 @@ type Config struct {
 	RedisDB       int           `envconfig:"REDIS_DB" default:"0"`
 	RedisTimeout  time.Duration `envconfig:"REDIS_TIMEOUT" default:"2s"`
 	RedisCacheTTL time.Duration `envconfig:"REDIS_CACHE_TTL" default:"10m"`
+	RedisMissTTL  time.Duration `envconfig:"REDIS_MISS_TTL" default:"30s"`
 }
 
 type LoggerConfig struct {
@@ -40,6 +41,9 @@ type HTTPConfig struct {
 	IdleTimeout       time.Duration `envconfig:"HTTP_IDLE_TIMEOUT" default:"60s"`
 	AllowedOrigins    []string      `envconfig:"HTTP_ALLOWED_ORIGINS" default:"*"`
 	AllowedMethods    []string      `envconfig:"HTTP_ALLOWED_METHODS" default:"GET,POST,DELETE,OPTIONS"`
+	RateLimitRPS      float64       `envconfig:"HTTP_RATE_LIMIT_RPS" default:"20"`
+	RateLimitBurst    int           `envconfig:"HTTP_RATE_LIMIT_BURST" default:"40"`
+	TrustedProxies    []string      `envconfig:"HTTP_TRUSTED_PROXIES" default:"127.0.0.1/32,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"`
 }
 
 type PostgresConfig struct {
@@ -48,6 +52,7 @@ type PostgresConfig struct {
 	MaxConns        int32         `envconfig:"POSTGRES_MAX_CONNS" default:"10"`
 	MinConns        int32         `envconfig:"POSTGRES_MIN_CONNS" default:"2"`
 	MaxConnIdleTime time.Duration `envconfig:"POSTGRES_MAX_CONN_IDLE_TIME" default:"5m"`
+	TimeZone        string        `ignored:"true"`
 }
 
 func Load() (Config, error) {
@@ -70,6 +75,7 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("load time zone %q: %w", cfg.RawTimeZone, err)
 	}
 	cfg.TimeZone = zone
+	cfg.Postgres.TimeZone = zone.String()
 
 	if err := validate(cfg); err != nil {
 		return Config{}, fmt.Errorf("validate config: %w", err)
@@ -115,6 +121,12 @@ func validate(cfg Config) error {
 	if len(cfg.HTTP.AllowedMethods) == 0 {
 		return fmt.Errorf("http allowed methods is required")
 	}
+	if cfg.HTTP.RateLimitRPS <= 0 {
+		return fmt.Errorf("http rate limit RPS must be positive")
+	}
+	if cfg.HTTP.RateLimitBurst <= 0 {
+		return fmt.Errorf("http rate limit burst must be positive")
+	}
 	if cfg.Postgres.URL == "" {
 		return fmt.Errorf("postgres URL is required")
 	}
@@ -144,6 +156,9 @@ func validate(cfg Config) error {
 	}
 	if cfg.RedisCacheTTL <= 0 {
 		return fmt.Errorf("redis cache TTL must be positive")
+	}
+	if cfg.RedisMissTTL <= 0 {
+		return fmt.Errorf("redis miss TTL must be positive")
 	}
 	return nil
 }
