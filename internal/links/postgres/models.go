@@ -15,6 +15,7 @@ type LinkModel struct {
 	IsCustom    bool
 	CreatedAt   time.Time
 	DisabledAt  *time.Time
+	ExpiresAt   *time.Time
 }
 
 func (m *LinkModel) Scan(row pool.Row) error {
@@ -25,6 +26,7 @@ func (m *LinkModel) Scan(row pool.Row) error {
 		&m.IsCustom,
 		&m.CreatedAt,
 		&m.DisabledAt,
+		&m.ExpiresAt,
 	)
 }
 
@@ -36,5 +38,6 @@ func modelToDomain(model LinkModel) links.Link {
 		IsCustom:    model.IsCustom,
 		CreatedAt:   model.CreatedAt,
 		DisabledAt:  model.DisabledAt,
+		ExpiresAt:   model.ExpiresAt,
 	}
 }
