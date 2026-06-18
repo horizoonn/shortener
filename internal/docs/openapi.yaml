@@ -53,6 +53,40 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      description: Exposes Prometheus/OpenMetrics telemetry for the service. In production deployments, this endpoint should be reachable only by Prometheus or trusted internal networks.
+      responses:
+        "200":
+          description: Metrics exposition
+          content:
+            text/plain:
+              schema:
+                type: string
+            application/openmetrics-text:
+              schema:
+                type: string
+  /docs:
+    get:
+      summary: Swagger UI
+      responses:
+        "200":
+          description: Swagger UI HTML page
+          content:
+            text/html:
+              schema:
+                type: string
+  /docs/openapi.yaml:
+    get:
+      summary: OpenAPI specification
+      responses:
+        "200":
+          description: OpenAPI YAML specification
+          content:
+            text/yaml:
+              schema:
+                type: string
   /api/v1/shorten:
     post:
       summary: Create a short URL
@@ -72,6 +106,11 @@ paths:
                   type: string
                   nullable: true
                   example: my-link
+                expires_at:
+                  type: string
+                  format: date-time
+                  nullable: true
+                  example: "2026-12-31T23:59:59Z"
       responses:
         "201":
           description: Short URL created
@@ -105,6 +144,11 @@ paths:
                   created_at:
                     type: string
                     format: date-time
+                  expires_at:
+                    type: string
+                    format: date-time
+                    nullable: true
+                    example: "2026-12-31T23:59:59Z"
         "400":
           description: Invalid request
           content:
@@ -113,6 +157,12 @@ paths:
                 $ref: "#/components/schemas/Error"
         "409":
           description: Short code or custom alias conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          description: Rate limit exceeded
           content:
             application/json:
               schema:
@@ -154,6 +204,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "500":
           description: Internal server error
           content:
@@ -163,7 +219,7 @@ paths:
   /api/v1/analytics/{code}:
     get:
       summary: Get click analytics
-      description: Returns total clicks, time buckets, user-agent aggregation, and recent clicks for an existing short link, including soft-disabled links.
+      description: Returns total clicks, time buckets, top 50 user-agent aggregation, and recent clicks for an existing short link, including soft-disabled links. If from/to are omitted, aggregation buckets and recent clicks use the last 90 days by default. Daily and monthly buckets use the application time zone configured by SHORTENER_TIME_ZONE.
       parameters:
         - name: code
           in: path
@@ -211,6 +267,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "500":
           description: Internal server error
           content:
@@ -238,6 +300,68 @@ paths:
                 $ref: "#/components/schemas/Error"
         "404":
           description: Short link not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/v1/links/{code}/qr:
+    get:
+      summary: Get short URL QR code
+      description: Generates a PNG QR code for the public short URL. The image is generated on demand and is not stored.
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 128
+            maximum: 1024
+            default: 256
+      responses:
+        "200":
+          description: PNG QR code
+          headers:
+            Cache-Control:
+              description: Browser/proxy cache policy for generated QR image
+              schema:
+                type: string
+                example: public, max-age=3600
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        "400":
+          description: Invalid short code or size
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Short link not found or disabled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          description: Rate limit exceeded
           content:
             application/json:
               schema:
