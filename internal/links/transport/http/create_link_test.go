@@ -18,7 +18,9 @@ import (
 
 type fakeLinksService struct {
 	createLink  func(ctx context.Context, originalURL string, customAlias *string) (links.Link, error)
+	getLink     func(ctx context.Context, code string) (links.Link, error)
 	resolveLink func(ctx context.Context, code string) (links.Link, error)
+	disableLink func(ctx context.Context, code string) (links.Link, error)
 }
 
 func (s fakeLinksService) CreateLink(ctx context.Context, originalURL string, customAlias *string) (links.Link, error) {
@@ -35,6 +37,22 @@ func (s fakeLinksService) ResolveLink(ctx context.Context, code string) (links.L
 	}
 
 	return s.resolveLink(ctx, code)
+}
+
+func (s fakeLinksService) GetLink(ctx context.Context, code string) (links.Link, error) {
+	if s.getLink == nil {
+		return links.Link{}, fmt.Errorf("get link not implemented")
+	}
+
+	return s.getLink(ctx, code)
+}
+
+func (s fakeLinksService) DisableLink(ctx context.Context, code string) (links.Link, error) {
+	if s.disableLink == nil {
+		return links.Link{}, fmt.Errorf("disable link not implemented")
+	}
+
+	return s.disableLink(ctx, code)
 }
 
 func TestHandlerCreateLinkGeneratedSuccess(t *testing.T) {
@@ -134,6 +152,37 @@ func TestHandlerCreateLinkInvalidJSON(t *testing.T) {
 	}, "http://localhost:8080")
 
 	rec := executeCreateLinkRequest(t, handler, `{"original_url":`)
+
+	assertErrorResponse(t, rec, nethttp.StatusBadRequest, "invalid_argument")
+}
+
+func TestHandlerCreateLinkMissingOriginalURL(t *testing.T) {
+	t.Parallel()
+
+	handler := NewHandler(fakeLinksService{
+		createLink: func(_ context.Context, _ string, _ *string) (links.Link, error) {
+			t.Fatal("service should not be called for invalid request")
+			return links.Link{}, nil
+		},
+	}, "http://localhost:8080")
+
+	rec := executeCreateLinkRequest(t, handler, `{"custom_alias":"my-link"}`)
+
+	assertErrorResponse(t, rec, nethttp.StatusBadRequest, "invalid_argument")
+}
+
+func TestHandlerCreateLinkRequestBodyTooLarge(t *testing.T) {
+	t.Parallel()
+
+	handler := NewHandler(fakeLinksService{
+		createLink: func(_ context.Context, _ string, _ *string) (links.Link, error) {
+			t.Fatal("service should not be called for oversized request")
+			return links.Link{}, nil
+		},
+	}, "http://localhost:8080")
+
+	body := `{"original_url":"https://example.com/` + string(bytes.Repeat([]byte("a"), maxCreateLinkRequestBytes)) + `"}`
+	rec := executeCreateLinkRequest(t, handler, body)
 
 	assertErrorResponse(t, rec, nethttp.StatusBadRequest, "invalid_argument")
 }

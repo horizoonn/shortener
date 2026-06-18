@@ -20,7 +20,9 @@ type Handler struct {
 
 type LinksService interface {
 	CreateLink(ctx context.Context, originalURL string, customAlias *string) (links.Link, error)
+	GetLink(ctx context.Context, code string) (links.Link, error)
 	ResolveLink(ctx context.Context, code string) (links.Link, error)
+	DisableLink(ctx context.Context, code string) (links.Link, error)
 }
 
 type ClickRecorder interface {
@@ -68,6 +70,11 @@ func (h *Handler) Routes() []server.Route {
 			Method:  nethttp.MethodGet,
 			Path:    "/analytics/{code}",
 			Handler: h.GetAnalytics,
+		},
+		{
+			Method:  nethttp.MethodDelete,
+			Path:    "/links/{code}",
+			Handler: h.DisableLink,
 		},
 	}
 }

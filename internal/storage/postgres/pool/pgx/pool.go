@@ -30,6 +30,10 @@ func NewPool(ctx context.Context, cfg config.PostgresConfig) (*Pool, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create pgxpool with config: %w", err)
 	}
+	if err := pool.Ping(ctx); err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("ping pgxpool: %w", err)
+	}
 
 	return &Pool{
 		Pool:      pool,

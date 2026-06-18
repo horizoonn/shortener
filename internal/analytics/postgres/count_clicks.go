@@ -24,7 +24,7 @@ func (r *Repository) CountClicks(ctx context.Context, linkID uuid.UUID, filter a
 	FROM clicks
 	`)
 
-	args := appendClickFilter(&queryBuilder, nil, linkID, filter)
+	args := appendClickFilter(&queryBuilder, linkID, filter)
 
 	row := r.pool.QueryRow(ctx, queryBuilder.String(), args...)
 

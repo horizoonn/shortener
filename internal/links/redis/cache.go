@@ -21,12 +21,9 @@ type Cache struct {
 }
 
 type cachedLink struct {
-	ID          string     `json:"id"`
-	Code        string     `json:"code"`
-	OriginalURL string     `json:"original_url"`
-	IsCustom    bool       `json:"is_custom"`
-	CreatedAt   time.Time  `json:"created_at"`
-	DisabledAt  *time.Time `json:"disabled_at"`
+	ID          string `json:"id"`
+	Code        string `json:"code"`
+	OriginalURL string `json:"original_url"`
 }
 
 func NewCache(client *goredis.Client, ttl time.Duration) (*Cache, error) {
@@ -102,9 +99,6 @@ func newCachedLink(link links.Link) cachedLink {
 		ID:          link.ID.String(),
 		Code:        link.Code,
 		OriginalURL: link.OriginalURL,
-		IsCustom:    link.IsCustom,
-		CreatedAt:   link.CreatedAt,
-		DisabledAt:  link.DisabledAt,
 	}
 }
 
@@ -118,9 +112,6 @@ func (l cachedLink) toLink() (links.Link, error) {
 		ID:          id,
 		Code:        l.Code,
 		OriginalURL: l.OriginalURL,
-		IsCustom:    l.IsCustom,
-		CreatedAt:   l.CreatedAt,
-		DisabledAt:  l.DisabledAt,
 	}, nil
 }
 

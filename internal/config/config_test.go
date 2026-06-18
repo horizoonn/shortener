@@ -1,6 +1,7 @@
 package config
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -67,5 +68,39 @@ func TestLoadUsesDocumentedEnvironmentNames(t *testing.T) {
 	}
 	if cfg.RedisCacheTTL != 3*time.Minute {
 		t.Fatalf("expected redis cache TTL 3m, got %s", cfg.RedisCacheTTL)
+	}
+}
+
+func TestLoadRejectsInvalidPublicBaseURL(t *testing.T) {
+	tests := []struct {
+		name string
+		url  string
+	}{
+		{
+			name: "missing scheme",
+			url:  "localhost:8080",
+		},
+		{
+			name: "with query",
+			url:  "https://short.example?source=test",
+		},
+		{
+			name: "with fragment",
+			url:  "https://short.example#links",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("SHORTENER_HTTP_PUBLIC_BASE_URL", tt.url)
+
+			_, err := Load()
+			if err == nil {
+				t.Fatal("expected invalid public base URL error")
+			}
+			if !strings.Contains(err.Error(), "public base URL") {
+				t.Fatalf("expected public base URL error, got %v", err)
+			}
+		})
 	}
 }

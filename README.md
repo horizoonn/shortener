@@ -1,6 +1,6 @@
 # Shortener
 
-Shortener is a Go backend service for URL shortening and click analytics. This bootstrap stage includes the project skeleton, configuration, file and stdout logging, HTTP wiring, Docker environment, and `/healthz`.
+Shortener is a Go backend service for URL shortening and click analytics. It provides URL creation, redirect tracking, click aggregation, Redis-backed link resolution cache, and a small static UI.
 
 ## Stack
 
@@ -33,8 +33,16 @@ docs/openapi.yaml          OpenAPI contract
 ```bash
 cp .env.example .env
 make env-up
+make migrate-up
 make shortener-run
 curl http://localhost:8080/healthz
+```
+
+For a fully containerized run, use:
+
+```bash
+cp .env.example .env
+make shortener-deploy
 ```
 
 ## Makefile Commands
@@ -45,10 +53,18 @@ curl http://localhost:8080/healthz
 | `make fmt` | Format Go files. |
 | `make fmt-check` | Check Go formatting. |
 | `make vet` | Run `go vet ./...`. |
+| `make lint` | Run `golangci-lint`. |
+| `make staticcheck` | Run Staticcheck. |
+| `make actionlint` | Lint GitHub Actions workflows. |
 | `make test` | Run `go test ./...`. |
+| `make test-cover` | Run unit tests with coverage summary. |
+| `make test-cover-func` | Show unit test coverage by function. |
+| `make test-cover-html` | Write unit test coverage HTML report. |
 | `make test-race` | Run tests with the race detector. |
 | `make test-integration` | Run integration tests with the `integration` tag. |
-| `make check` | Run formatting, vet, and unit tests. |
+| `make test-integration-cover` | Show integration coverage by function. |
+| `make test-integration-cover-html` | Write integration coverage HTML report. |
+| `make check` | Run formatting, vet, golangci-lint, actionlint, and unit tests. |
 | `make check-all` | Run all checks. |
 | `make env-up` | Start PostgreSQL and Redis. |
 | `make env-down` | Stop Docker Compose services. |
@@ -61,6 +77,10 @@ curl http://localhost:8080/healthz
 | `make shortener-undeploy` | Stop the service container. |
 | `make shortener-logs` | Tail service logs. |
 
+## CI
+
+GitHub Actions runs fast checks, race tests, and integration tests as separate jobs. The workflow uses the Go version from `go.mod`, caches modules with `go.sum`, and keeps the default token limited to read-only repository contents.
+
 ## API
 
 | Method | Path | Status |
@@ -70,6 +90,7 @@ curl http://localhost:8080/healthz
 | `POST` | `/api/v1/shorten` | Implemented. |
 | `GET` | `/s/{code}` | Implemented. |
 | `GET` | `/api/v1/analytics/{code}` | Implemented. |
+| `DELETE` | `/api/v1/links/{code}` | Implemented. Soft-disables a short link and invalidates its cache entry. |
 
 ## Examples
 
@@ -97,6 +118,10 @@ curl -i http://localhost:8080/s/abc1234
 curl 'http://localhost:8080/api/v1/analytics/abc1234?from=2026-06-01&to=2026-06-12&recent_limit=20'
 ```
 
+```bash
+curl -i -X DELETE http://localhost:8080/api/v1/links/abc1234
+```
+
 ## Environment Variables
 
 | Variable | Default | Description |
@@ -113,7 +138,7 @@ curl 'http://localhost:8080/api/v1/analytics/abc1234?from=2026-06-01&to=2026-06-
 | `SHORTENER_HTTP_WRITE_TIMEOUT` | `10s` | Write timeout. |
 | `SHORTENER_HTTP_IDLE_TIMEOUT` | `60s` | Idle timeout. |
 | `SHORTENER_HTTP_ALLOWED_ORIGINS` | `*` | Comma-separated CORS origins. |
-| `SHORTENER_HTTP_ALLOWED_METHODS` | `GET,POST,OPTIONS` | Comma-separated CORS methods. |
+| `SHORTENER_HTTP_ALLOWED_METHODS` | `GET,POST,DELETE,OPTIONS` | Comma-separated CORS methods. |
 | `SHORTENER_DATABASE_URL` | local PostgreSQL URL | PostgreSQL connection string. |
 | `SHORTENER_POSTGRES_TIMEOUT` | `5s` | PostgreSQL operation timeout. |
 | `SHORTENER_POSTGRES_MAX_CONNS` | `10` | PostgreSQL pool max connections. |

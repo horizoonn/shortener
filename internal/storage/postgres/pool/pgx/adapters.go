@@ -60,13 +60,13 @@ func mapErrors(err error) error {
 	if errors.As(err, &pgErr) {
 		switch pgErr.Code {
 		case postgresUniqueViolationCode:
-			return fmt.Errorf("%v: %w", err, pool.ErrUniqueViolation)
+			return fmt.Errorf("%w: %w", err, pool.ErrUniqueViolation)
 		case postgresForeignKeyViolationCode:
-			return fmt.Errorf("%v: %w", err, pool.ErrViolatesForeignKey)
+			return fmt.Errorf("%w: %w", err, pool.ErrViolatesForeignKey)
 		case postgresInvalidTextCode:
-			return fmt.Errorf("%v: %w", err, pool.ErrInvalidInput)
+			return fmt.Errorf("%w: %w", err, pool.ErrInvalidInput)
 		}
 	}
 
-	return fmt.Errorf("%v: %w", err, pool.ErrUnknown)
+	return fmt.Errorf("%w: %w", err, pool.ErrUnknown)
 }

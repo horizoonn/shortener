@@ -81,7 +81,7 @@ func TestHandlerGetAnalyticsSuccess(t *testing.T) {
 		},
 	}
 	handler := NewHandlerWithDependencies(fakeLinksService{
-		resolveLink: func(_ context.Context, code string) (links.Link, error) {
+		getLink: func(_ context.Context, code string) (links.Link, error) {
 			if code != "abc12345" {
 				t.Fatalf("expected code abc12345, got %q", code)
 			}
@@ -138,7 +138,7 @@ func TestHandlerGetAnalyticsLinkNotFound(t *testing.T) {
 
 	reader := &fakeAnalyticsReader{}
 	handler := NewHandlerWithDependencies(fakeLinksService{
-		resolveLink: func(_ context.Context, _ string) (links.Link, error) {
+		getLink: func(_ context.Context, _ string) (links.Link, error) {
 			return links.Link{}, fmt.Errorf("link not found: %w", core_errors.ErrNotFound)
 		},
 	}, nil, reader, "http://localhost:8080")
@@ -148,6 +148,47 @@ func TestHandlerGetAnalyticsLinkNotFound(t *testing.T) {
 	assertErrorResponse(t, rec, nethttp.StatusNotFound, "not_found")
 	if reader.calls != 0 {
 		t.Fatalf("expected analytics reader not to be called, got %d calls", reader.calls)
+	}
+}
+
+func TestHandlerGetAnalyticsDisabledLinkSuccess(t *testing.T) {
+	t.Parallel()
+
+	linkID := uuid.New()
+	disabledAt := time.Now().UTC()
+	reader := &fakeAnalyticsReader{
+		getLinkAnalytics: func(_ context.Context, gotLinkID uuid.UUID, _ analytics.ClickFilter, _ int) (analytics.LinkAnalytics, error) {
+			if gotLinkID != linkID {
+				t.Fatalf("expected link ID %s, got %s", linkID, gotLinkID)
+			}
+
+			return analytics.LinkAnalytics{TotalClicks: 7}, nil
+		},
+	}
+	handler := NewHandlerWithDependencies(fakeLinksService{
+		getLink: func(_ context.Context, code string) (links.Link, error) {
+			return links.Link{
+				ID:          linkID,
+				Code:        code,
+				OriginalURL: "https://example.com/disabled",
+				DisabledAt:  &disabledAt,
+			}, nil
+		},
+	}, nil, reader, "http://localhost:8080")
+
+	rec := executeGetAnalyticsRequest(t, handler, "disabled1", "")
+
+	if rec.Code != nethttp.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", nethttp.StatusOK, rec.Code, rec.Body.String())
+	}
+
+	var response AnalyticsResponse
+	decodeResponse(t, rec, &response)
+	if response.Code != "disabled1" {
+		t.Fatalf("expected code disabled1, got %q", response.Code)
+	}
+	if response.TotalClicks != 7 {
+		t.Fatalf("expected total clicks 7, got %d", response.TotalClicks)
 	}
 }
 
@@ -195,7 +236,7 @@ func TestHandlerGetAnalyticsInternalAnalyticsError(t *testing.T) {
 	t.Parallel()
 
 	handler := NewHandlerWithDependencies(fakeLinksService{
-		resolveLink: func(_ context.Context, code string) (links.Link, error) {
+		getLink: func(_ context.Context, code string) (links.Link, error) {
 			return links.Link{
 				ID:          uuid.New(),
 				Code:        code,
@@ -217,8 +258,8 @@ func newGetAnalyticsValidationTestHandler(t *testing.T) *Handler {
 	t.Helper()
 
 	return NewHandlerWithDependencies(fakeLinksService{
-		resolveLink: func(_ context.Context, _ string) (links.Link, error) {
-			t.Fatal("ResolveLink must not be called for invalid query")
+		getLink: func(_ context.Context, _ string) (links.Link, error) {
+			t.Fatal("GetLink must not be called for invalid query")
 			return links.Link{}, nil
 		},
 	}, nil, &fakeAnalyticsReader{

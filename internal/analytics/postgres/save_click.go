@@ -28,7 +28,7 @@ func (r *Repository) SaveClick(ctx context.Context, click analytics.Click) (anal
 	query := `
 	INSERT INTO clicks (id, link_id, user_agent, referer, ip)
 	VALUES ($1, $2, $3, $4, CAST($5 AS inet))
-	RETURNING id, link_id, clicked_at, user_agent, referer, ip::text;
+	RETURNING id, link_id, clicked_at, user_agent, referer, host(ip);
 	`
 
 	row := r.pool.QueryRow(

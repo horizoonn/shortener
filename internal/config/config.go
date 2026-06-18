@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"time"
 	_ "time/tzdata"
 
@@ -38,7 +39,7 @@ type HTTPConfig struct {
 	WriteTimeout      time.Duration `envconfig:"HTTP_WRITE_TIMEOUT" default:"10s"`
 	IdleTimeout       time.Duration `envconfig:"HTTP_IDLE_TIMEOUT" default:"60s"`
 	AllowedOrigins    []string      `envconfig:"HTTP_ALLOWED_ORIGINS" default:"*"`
-	AllowedMethods    []string      `envconfig:"HTTP_ALLOWED_METHODS" default:"GET,POST,OPTIONS"`
+	AllowedMethods    []string      `envconfig:"HTTP_ALLOWED_METHODS" default:"GET,POST,DELETE,OPTIONS"`
 }
 
 type PostgresConfig struct {
@@ -90,6 +91,9 @@ func validate(cfg Config) error {
 	if cfg.HTTP.PublicBaseURL == "" {
 		return fmt.Errorf("http public base URL is required")
 	}
+	if err := validatePublicBaseURL(cfg.HTTP.PublicBaseURL); err != nil {
+		return err
+	}
 	if cfg.HTTP.ShutdownTimeout <= 0 {
 		return fmt.Errorf("http shutdown timeout must be positive")
 	}
@@ -140,6 +144,23 @@ func validate(cfg Config) error {
 	}
 	if cfg.RedisCacheTTL <= 0 {
 		return fmt.Errorf("redis cache TTL must be positive")
+	}
+	return nil
+}
+
+func validatePublicBaseURL(rawURL string) error {
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil {
+		return fmt.Errorf("http public base URL is invalid: %w", err)
+	}
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		return fmt.Errorf("http public base URL must use http or https")
+	}
+	if parsedURL.Host == "" {
+		return fmt.Errorf("http public base URL host is required")
+	}
+	if parsedURL.RawQuery != "" || parsedURL.Fragment != "" {
+		return fmt.Errorf("http public base URL must not include query or fragment")
 	}
 	return nil
 }

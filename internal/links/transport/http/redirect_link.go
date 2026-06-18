@@ -2,12 +2,11 @@ package http
 
 import (
 	"context"
-	"fmt"
 	"net"
 	nethttp "net/http"
 
 	"github.com/google/uuid"
-	core_errors "github.com/horizoonn/shortener/internal/errors"
+	"github.com/horizoonn/shortener/internal/httpapi/request"
 	"github.com/horizoonn/shortener/internal/httpapi/response"
 	"github.com/horizoonn/shortener/internal/logger"
 	"go.uber.org/zap"
@@ -20,12 +19,9 @@ func (h *Handler) RedirectLink(w nethttp.ResponseWriter, r *nethttp.Request) {
 	log := logger.FromContext(ctx)
 	responseHandler := response.NewHTTPResponseHandler(log, w)
 
-	code := r.PathValue(linkCodePathValue)
-	if code == "" {
-		responseHandler.ErrorResponse(
-			fmt.Errorf("link code is empty: %w", core_errors.ErrInvalidArgument),
-			"failed to resolve short link",
-		)
+	code, err := request.GetStringPathValue(r, linkCodePathValue)
+	if err != nil {
+		responseHandler.ErrorResponse(err, "failed to resolve short link")
 		return
 	}
 

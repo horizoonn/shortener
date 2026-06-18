@@ -18,6 +18,7 @@ type Service struct {
 type LinksRepository interface {
 	CreateLink(ctx context.Context, link links.Link) (links.Link, error)
 	GetLinkByCode(ctx context.Context, code string) (links.Link, error)
+	DisableLink(ctx context.Context, code string) (links.Link, error)
 }
 
 type CodeGenerator interface {

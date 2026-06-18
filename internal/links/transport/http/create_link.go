@@ -4,11 +4,12 @@ import (
 	"fmt"
 	nethttp "net/http"
 
-	core_errors "github.com/horizoonn/shortener/internal/errors"
 	"github.com/horizoonn/shortener/internal/httpapi/request"
 	"github.com/horizoonn/shortener/internal/httpapi/response"
 	"github.com/horizoonn/shortener/internal/logger"
 )
+
+const maxCreateLinkRequestBytes = 64 * 1024
 
 func (h *Handler) CreateLink(w nethttp.ResponseWriter, r *nethttp.Request) {
 	ctx := r.Context()
@@ -16,10 +17,10 @@ func (h *Handler) CreateLink(w nethttp.ResponseWriter, r *nethttp.Request) {
 	responseHandler := response.NewHTTPResponseHandler(log, w)
 
 	var requestBody CreateLinkRequest
-	if err := request.DecodeJSON(r, &requestBody); err != nil {
+	if err := request.DecodeAndValidateJSON(w, r, &requestBody, maxCreateLinkRequestBytes); err != nil {
 		responseHandler.ErrorResponse(
-			fmt.Errorf("decode create link request: %w", core_errors.ErrInvalidArgument),
-			"failed to decode create link HTTP request",
+			fmt.Errorf("decode and validate create link request: %w", err),
+			"failed to decode and validate create link HTTP request",
 		)
 		return
 	}
