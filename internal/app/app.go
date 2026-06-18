@@ -10,7 +10,10 @@ import (
 	"github.com/horizoonn/shortener/internal/httpapi/middleware"
 	"github.com/horizoonn/shortener/internal/httpapi/response"
 	"github.com/horizoonn/shortener/internal/httpapi/server"
+	"github.com/horizoonn/shortener/internal/links"
 	links_postgres "github.com/horizoonn/shortener/internal/links/postgres"
+	links_service "github.com/horizoonn/shortener/internal/links/service"
+	links_transport_http "github.com/horizoonn/shortener/internal/links/transport/http"
 	"github.com/horizoonn/shortener/internal/logger"
 	pgx_pool "github.com/horizoonn/shortener/internal/storage/postgres/pool/pgx"
 )
@@ -35,6 +38,13 @@ func New(ctx context.Context, cfg config.Config, log *logger.Logger) (*App, erro
 
 	log.Debug("initializing links repository")
 	linksRepository := links_postgres.NewRepository(postgresPool)
+	linksCodeGenerator, err := links.NewDefaultCodeGenerator()
+	if err != nil {
+		postgresPool.Close()
+		return nil, fmt.Errorf("init links code generator: %w", err)
+	}
+	linksService := links_service.NewService(linksRepository, linksCodeGenerator)
+	linksHTTPHandler := links_transport_http.NewHandler(linksService, cfg.HTTP.PublicBaseURL)
 
 	log.Debug("initializing analytics repository")
 	analyticsRepository := analytics_postgres.NewRepository(postgresPool)
@@ -52,7 +62,11 @@ func New(ctx context.Context, cfg config.Config, log *logger.Logger) (*App, erro
 		postgresPool.Close()
 		return nil, fmt.Errorf("init HTTP server: %w", err)
 	}
+	apiVersionRouterV1 := server.NewAPIVersionRouter(server.APIVersion1)
+	apiVersionRouterV1.AddRoutes(linksHTTPHandler.Routes()...)
+
 	httpServer.RegisterRoutes(server.HealthRoute(), readyRoute(postgresPool))
+	httpServer.RegisterAPIRouters(apiVersionRouterV1)
 
 	return &App{
 		httpServer:          httpServer,

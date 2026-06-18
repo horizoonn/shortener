@@ -46,10 +46,73 @@ paths:
   /api/v1/shorten:
     post:
       summary: Create a short URL
-      description: Planned endpoint.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - original_url
+              properties:
+                original_url:
+                  type: string
+                  example: https://example.com/some/long/path
+                custom_alias:
+                  type: string
+                  nullable: true
+                  example: my-link
       responses:
-        "501":
-          description: Not implemented yet
+        "201":
+          description: Short URL created
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                  - code
+                  - original_url
+                  - short_url
+                  - is_custom
+                  - created_at
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  code:
+                    type: string
+                    example: abc12345
+                  original_url:
+                    type: string
+                    example: https://example.com/some/long/path
+                  short_url:
+                    type: string
+                    example: http://localhost:8080/s/abc12345
+                  is_custom:
+                    type: boolean
+                    example: false
+                  created_at:
+                    type: string
+                    format: date-time
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Short code or custom alias conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /s/{code}:
     get:
       summary: Redirect to the original URL

@@ -30,6 +30,7 @@ type LoggerConfig struct {
 
 type HTTPConfig struct {
 	Addr              string        `envconfig:"HTTP_ADDR" default:":8080"`
+	PublicBaseURL     string        `envconfig:"HTTP_PUBLIC_BASE_URL" default:"http://localhost:8080"`
 	ShutdownTimeout   time.Duration `envconfig:"HTTP_SHUTDOWN_TIMEOUT" default:"10s"`
 	ReadHeaderTimeout time.Duration `envconfig:"HTTP_READ_HEADER_TIMEOUT" default:"5s"`
 	ReadTimeout       time.Duration `envconfig:"HTTP_READ_TIMEOUT" default:"10s"`
@@ -84,6 +85,9 @@ func validate(cfg Config) error {
 	}
 	if cfg.HTTP.Addr == "" {
 		return fmt.Errorf("http addr is required")
+	}
+	if cfg.HTTP.PublicBaseURL == "" {
+		return fmt.Errorf("http public base URL is required")
 	}
 	if cfg.HTTP.ShutdownTimeout <= 0 {
 		return fmt.Errorf("http shutdown timeout must be positive")

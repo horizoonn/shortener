@@ -9,6 +9,7 @@ func TestLoadUsesDocumentedEnvironmentNames(t *testing.T) {
 	t.Setenv("SHORTENER_LOG_LEVEL", "INFO")
 	t.Setenv("SHORTENER_LOG_FOLDER", ".out/test-logs")
 	t.Setenv("SHORTENER_HTTP_ADDR", ":9090")
+	t.Setenv("SHORTENER_HTTP_PUBLIC_BASE_URL", "https://short.example")
 	t.Setenv("SHORTENER_HTTP_SHUTDOWN_TIMEOUT", "3s")
 	t.Setenv("SHORTENER_DATABASE_URL", "postgres://user:pass@db:5432/shortener?sslmode=disable")
 	t.Setenv("SHORTENER_POSTGRES_TIMEOUT", "4s")
@@ -29,6 +30,9 @@ func TestLoadUsesDocumentedEnvironmentNames(t *testing.T) {
 	}
 	if cfg.HTTP.Addr != ":9090" {
 		t.Fatalf("expected HTTP addr from SHORTENER_HTTP_ADDR, got %q", cfg.HTTP.Addr)
+	}
+	if cfg.HTTP.PublicBaseURL != "https://short.example" {
+		t.Fatalf("expected HTTP public base URL from SHORTENER_HTTP_PUBLIC_BASE_URL, got %q", cfg.HTTP.PublicBaseURL)
 	}
 	if cfg.HTTP.ShutdownTimeout != 3*time.Second {
 		t.Fatalf("expected HTTP shutdown timeout 3s, got %s", cfg.HTTP.ShutdownTimeout)

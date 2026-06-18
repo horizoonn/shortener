@@ -67,7 +67,7 @@ curl http://localhost:8080/healthz
 | --- | --- | --- |
 | `GET` | `/healthz` | Implemented. |
 | `GET` | `/readyz` | Implemented. |
-| `POST` | `/api/v1/shorten` | Planned. |
+| `POST` | `/api/v1/shorten` | Implemented. |
 | `GET` | `/s/{code}` | Planned. |
 | `GET` | `/api/v1/analytics/{code}` | Planned. |
 
@@ -77,13 +77,21 @@ curl http://localhost:8080/healthz
 curl -i http://localhost:8080/healthz
 ```
 
-Future API examples:
-
 ```bash
 curl -X POST http://localhost:8080/api/v1/shorten \
   -H 'Content-Type: application/json' \
   -d '{"original_url":"https://example.com"}'
+```
 
+```bash
+curl -X POST http://localhost:8080/api/v1/shorten \
+  -H 'Content-Type: application/json' \
+  -d '{"original_url":"https://example.com","custom_alias":"my-link"}'
+```
+
+Future API examples:
+
+```bash
 curl -i http://localhost:8080/s/abc1234
 curl http://localhost:8080/api/v1/analytics/abc1234
 ```
@@ -97,6 +105,7 @@ curl http://localhost:8080/api/v1/analytics/abc1234
 | `SHORTENER_LOG_LEVEL` | `DEBUG` | Zap log level. |
 | `SHORTENER_LOG_FOLDER` | `.out/logs` | Local log file directory. |
 | `SHORTENER_HTTP_ADDR` | `:8080` | HTTP bind address. |
+| `SHORTENER_HTTP_PUBLIC_BASE_URL` | `http://localhost:8080` | Public base URL used to build short URLs. |
 | `SHORTENER_HTTP_SHUTDOWN_TIMEOUT` | `10s` | Graceful HTTP shutdown timeout. |
 | `SHORTENER_HTTP_READ_HEADER_TIMEOUT` | `5s` | Read header timeout. |
 | `SHORTENER_HTTP_READ_TIMEOUT` | `10s` | Read timeout. |
