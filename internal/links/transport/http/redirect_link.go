@@ -2,7 +2,6 @@ package http
 
 import (
 	"context"
-	"net"
 	nethttp "net/http"
 
 	"github.com/google/uuid"
@@ -43,12 +42,24 @@ func (h *Handler) recordClick(ctx context.Context, r *nethttp.Request, linkID uu
 		return nil
 	}
 
+	var ip string
+	if h.ipResolver != nil {
+		ip = h.ipResolver.Resolve(r)
+	} else {
+		ip = request.ClientIP(r)
+	}
+
+	var ipPtr *string
+	if ip != "" {
+		ipPtr = &ip
+	}
+
 	return h.clickRecorder.RecordClick(
 		ctx,
 		linkID,
 		r.UserAgent(),
 		optionalHeader(r, "Referer"),
-		remoteIP(r.RemoteAddr),
+		ipPtr,
 	)
 }
 
@@ -59,17 +70,4 @@ func optionalHeader(r *nethttp.Request, name string) *string {
 	}
 
 	return &value
-}
-
-func remoteIP(remoteAddr string) *string {
-	host, _, err := net.SplitHostPort(remoteAddr)
-	if err != nil {
-		host = remoteAddr
-	}
-
-	if net.ParseIP(host) == nil {
-		return nil
-	}
-
-	return &host
 }
