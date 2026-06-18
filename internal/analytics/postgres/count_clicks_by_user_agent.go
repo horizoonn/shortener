@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -25,10 +26,13 @@ func (r *Repository) CountClicksByUserAgent(ctx context.Context, linkID uuid.UUI
 	`)
 
 	args := appendClickFilter(&queryBuilder, linkID, filter)
+	args = append(args, analytics.MaxUserAgentAggregation)
 	queryBuilder.WriteString(`
 	GROUP BY user_agent
-	ORDER BY COUNT(*) DESC, user_agent ASC;
-	`)
+	ORDER BY COUNT(*) DESC, user_agent ASC
+	LIMIT $`)
+	queryBuilder.WriteString(strconv.Itoa(len(args)))
+	queryBuilder.WriteString(";\n")
 
 	rows, err := r.pool.Query(ctx, queryBuilder.String(), args...)
 	if err != nil {
