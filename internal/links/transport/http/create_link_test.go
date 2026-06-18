@@ -17,18 +17,18 @@ import (
 )
 
 type fakeLinksService struct {
-	createLink  func(ctx context.Context, originalURL string, customAlias *string) (links.Link, error)
+	createLink  func(ctx context.Context, originalURL string, customAlias *string, expiresAt *time.Time) (links.Link, error)
 	getLink     func(ctx context.Context, code string) (links.Link, error)
 	resolveLink func(ctx context.Context, code string) (links.Link, error)
 	disableLink func(ctx context.Context, code string) (links.Link, error)
 }
 
-func (s fakeLinksService) CreateLink(ctx context.Context, originalURL string, customAlias *string) (links.Link, error) {
+func (s fakeLinksService) CreateLink(ctx context.Context, originalURL string, customAlias *string, expiresAt *time.Time) (links.Link, error) {
 	if s.createLink == nil {
 		return links.Link{}, fmt.Errorf("create link not implemented")
 	}
 
-	return s.createLink(ctx, originalURL, customAlias)
+	return s.createLink(ctx, originalURL, customAlias, expiresAt)
 }
 
 func (s fakeLinksService) ResolveLink(ctx context.Context, code string) (links.Link, error) {
@@ -61,7 +61,7 @@ func TestHandlerCreateLinkGeneratedSuccess(t *testing.T) {
 	now := time.Date(2026, 6, 12, 10, 0, 0, 0, time.UTC)
 	linkID := uuid.New()
 	handler := NewHandler(fakeLinksService{
-		createLink: func(_ context.Context, originalURL string, customAlias *string) (links.Link, error) {
+		createLink: func(_ context.Context, originalURL string, customAlias *string, _ *time.Time) (links.Link, error) {
 			if originalURL != "https://example.com/path" {
 				t.Fatalf("expected original URL to be passed to service, got %q", originalURL)
 			}
@@ -106,7 +106,7 @@ func TestHandlerCreateLinkCustomAliasSuccess(t *testing.T) {
 	t.Parallel()
 
 	handler := NewHandler(fakeLinksService{
-		createLink: func(_ context.Context, originalURL string, customAlias *string) (links.Link, error) {
+		createLink: func(_ context.Context, originalURL string, customAlias *string, _ *time.Time) (links.Link, error) {
 			if customAlias == nil || *customAlias != "my-link" {
 				t.Fatalf("expected custom alias my-link, got %v", customAlias)
 			}
@@ -145,7 +145,7 @@ func TestHandlerCreateLinkInvalidJSON(t *testing.T) {
 	t.Parallel()
 
 	handler := NewHandler(fakeLinksService{
-		createLink: func(_ context.Context, _ string, _ *string) (links.Link, error) {
+		createLink: func(_ context.Context, _ string, _ *string, _ *time.Time) (links.Link, error) {
 			t.Fatal("service should not be called for invalid JSON")
 			return links.Link{}, nil
 		},
@@ -160,7 +160,7 @@ func TestHandlerCreateLinkMissingOriginalURL(t *testing.T) {
 	t.Parallel()
 
 	handler := NewHandler(fakeLinksService{
-		createLink: func(_ context.Context, _ string, _ *string) (links.Link, error) {
+		createLink: func(_ context.Context, _ string, _ *string, _ *time.Time) (links.Link, error) {
 			t.Fatal("service should not be called for invalid request")
 			return links.Link{}, nil
 		},
@@ -175,7 +175,7 @@ func TestHandlerCreateLinkRequestBodyTooLarge(t *testing.T) {
 	t.Parallel()
 
 	handler := NewHandler(fakeLinksService{
-		createLink: func(_ context.Context, _ string, _ *string) (links.Link, error) {
+		createLink: func(_ context.Context, _ string, _ *string, _ *time.Time) (links.Link, error) {
 			t.Fatal("service should not be called for oversized request")
 			return links.Link{}, nil
 		},
@@ -191,7 +191,7 @@ func TestHandlerCreateLinkInvalidURL(t *testing.T) {
 	t.Parallel()
 
 	handler := NewHandler(fakeLinksService{
-		createLink: func(_ context.Context, _ string, _ *string) (links.Link, error) {
+		createLink: func(_ context.Context, _ string, _ *string, _ *time.Time) (links.Link, error) {
 			return links.Link{}, fmt.Errorf("invalid URL: %w", core_errors.ErrInvalidArgument)
 		},
 	}, "http://localhost:8080")
@@ -205,7 +205,7 @@ func TestHandlerCreateLinkDuplicateAlias(t *testing.T) {
 	t.Parallel()
 
 	handler := NewHandler(fakeLinksService{
-		createLink: func(_ context.Context, _ string, _ *string) (links.Link, error) {
+		createLink: func(_ context.Context, _ string, _ *string, _ *time.Time) (links.Link, error) {
 			return links.Link{}, fmt.Errorf("custom alias conflict: %w", core_errors.ErrConflict)
 		},
 	}, "http://localhost:8080")
@@ -219,7 +219,7 @@ func TestHandlerCreateLinkInternalError(t *testing.T) {
 	t.Parallel()
 
 	handler := NewHandler(fakeLinksService{
-		createLink: func(_ context.Context, _ string, _ *string) (links.Link, error) {
+		createLink: func(_ context.Context, _ string, _ *string, _ *time.Time) (links.Link, error) {
 			return links.Link{}, errors.New("database unavailable")
 		},
 	}, "http://localhost:8080")

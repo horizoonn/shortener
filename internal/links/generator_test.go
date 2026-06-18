@@ -54,6 +54,12 @@ func TestNewCodeGeneratorInvalidConfig(t *testing.T) {
 			reader:   strings.NewReader("random"),
 		},
 		{
+			name:     "non ASCII alphabet",
+			alphabet: "abcд",
+			length:   8,
+			reader:   strings.NewReader("random"),
+		},
+		{
 			name:     "zero length",
 			alphabet: "abc",
 			length:   0,

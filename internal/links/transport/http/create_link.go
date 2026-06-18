@@ -25,7 +25,7 @@ func (h *Handler) CreateLink(w nethttp.ResponseWriter, r *nethttp.Request) {
 		return
 	}
 
-	link, err := h.linksService.CreateLink(ctx, requestBody.OriginalURL, requestBody.CustomAlias)
+	link, err := h.linksService.CreateLink(ctx, requestBody.OriginalURL, requestBody.CustomAlias, requestBody.ExpiresAt)
 	if err != nil {
 		responseHandler.ErrorResponse(err, "failed to create short link")
 		return
