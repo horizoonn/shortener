@@ -18,6 +18,7 @@ func TestDecodeAndValidateJSONSuccess(t *testing.T) {
 	t.Parallel()
 
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(`{"original_url":"https://example.com"}`))
+	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
 	var dst testRequest
@@ -47,6 +48,7 @@ func TestDecodeAndValidateJSONRejectsInvalidBody(t *testing.T) {
 			t.Parallel()
 
 			req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(tt.body))
+			req.Header.Set("Content-Type", "application/json")
 			rec := httptest.NewRecorder()
 
 			var dst testRequest
@@ -62,11 +64,26 @@ func TestDecodeAndValidateJSONRejectsOversizedBody(t *testing.T) {
 	t.Parallel()
 
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(`{"original_url":"https://example.com"}`))
+	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
 	var dst testRequest
 	err := DecodeAndValidateJSON(rec, req, &dst, 8)
 	if !errors.Is(err, core_errors.ErrInvalidArgument) {
 		t.Fatalf("expected invalid argument, got %v", err)
+	}
+}
+
+func TestDecodeAndValidateJSONRejectsWrongContentType(t *testing.T) {
+	t.Parallel()
+
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(`{"original_url":"https://example.com"}`))
+	req.Header.Set("Content-Type", "text/plain")
+	rec := httptest.NewRecorder()
+
+	var dst testRequest
+	err := DecodeAndValidateJSON(rec, req, &dst, 1024)
+	if !errors.Is(err, core_errors.ErrInvalidArgument) {
+		t.Fatalf("expected invalid argument for wrong content-type, got %v", err)
 	}
 }
