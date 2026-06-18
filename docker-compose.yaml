@@ -1,0 +1,55 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: shortener-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-shortener}
+      POSTGRES_USER: ${POSTGRES_USER:-shortener}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-shortener}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-shortener} -d ${POSTGRES_DB:-shortener}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:8-alpine
+    container_name: shortener-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  shortener:
+    build:
+      context: .
+      dockerfile: cmd/shortener/Dockerfile
+    container_name: shortener-api
+    env_file:
+      - .env
+    environment:
+      SHORTENER_HTTP_ADDR: ":8080"
+      SHORTENER_LOG_FOLDER: /app/.out/logs
+      SHORTENER_DATABASE_URL: postgres://${POSTGRES_USER:-shortener}:${POSTGRES_PASSWORD:-shortener}@postgres:5432/${POSTGRES_DB:-shortener}?sslmode=disable
+      SHORTENER_REDIS_ADDR: redis:6379
+    ports:
+      - "${SHORTENER_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  redis-data:

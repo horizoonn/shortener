@@ -1,0 +1,57 @@
+openapi: 3.1.0
+info:
+  title: Shortener API
+  version: 0.1.0
+servers:
+  - url: http://localhost:8080
+paths:
+  /healthz:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - status
+                properties:
+                  status:
+                    type: string
+                    example: ok
+  /api/v1/shorten:
+    post:
+      summary: Create a short URL
+      description: Planned endpoint.
+      responses:
+        "501":
+          description: Not implemented yet
+  /s/{code}:
+    get:
+      summary: Redirect to the original URL
+      description: Planned endpoint.
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "501":
+          description: Not implemented yet
+  /api/v1/analytics/{code}:
+    get:
+      summary: Get click analytics
+      description: Planned endpoint.
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "501":
+          description: Not implemented yet
+
