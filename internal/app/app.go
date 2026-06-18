@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	analytics_postgres "github.com/horizoonn/shortener/internal/analytics/postgres"
+	analytics_service "github.com/horizoonn/shortener/internal/analytics/service"
 	"github.com/horizoonn/shortener/internal/config"
 	"github.com/horizoonn/shortener/internal/httpapi/middleware"
 	"github.com/horizoonn/shortener/internal/httpapi/response"
@@ -64,11 +65,16 @@ func New(ctx context.Context, cfg config.Config, log *logger.Logger) (*App, erro
 		return nil, fmt.Errorf("init links redis cache: %w", err)
 	}
 
-	linksService := links_service.NewServiceWithCache(linksRepository, linksCodeGenerator, linksCache)
-	linksHTTPHandler := links_transport_http.NewHandler(linksService, cfg.HTTP.PublicBaseURL)
-
 	log.Debug("initializing analytics repository")
 	analyticsRepository := analytics_postgres.NewRepository(postgresPool)
+	analyticsService := analytics_service.NewService(analyticsRepository)
+
+	linksService := links_service.NewServiceWithCache(linksRepository, linksCodeGenerator, linksCache)
+	linksHTTPHandler := links_transport_http.NewHandlerWithClickRecorder(
+		linksService,
+		analyticsService,
+		cfg.HTTP.PublicBaseURL,
+	)
 
 	httpServer, err := server.NewHTTPServer(
 		cfg.HTTP,
@@ -88,6 +94,7 @@ func New(ctx context.Context, cfg config.Config, log *logger.Logger) (*App, erro
 	apiVersionRouterV1.AddRoutes(linksHTTPHandler.Routes()...)
 
 	httpServer.RegisterRoutes(server.HealthRoute(), readyRoute(postgresPool))
+	httpServer.RegisterRoutes(linksHTTPHandler.RedirectRoutes()...)
 	httpServer.RegisterAPIRouters(apiVersionRouterV1)
 
 	return &App{

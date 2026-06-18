@@ -68,7 +68,7 @@ curl http://localhost:8080/healthz
 | `GET` | `/healthz` | Implemented. |
 | `GET` | `/readyz` | Implemented. |
 | `POST` | `/api/v1/shorten` | Implemented. |
-| `GET` | `/s/{code}` | Planned. |
+| `GET` | `/s/{code}` | Implemented. |
 | `GET` | `/api/v1/analytics/{code}` | Planned. |
 
 ## Examples
@@ -89,10 +89,13 @@ curl -X POST http://localhost:8080/api/v1/shorten \
   -d '{"original_url":"https://example.com","custom_alias":"my-link"}'
 ```
 
+```bash
+curl -i http://localhost:8080/s/abc1234
+```
+
 Future API examples:
 
 ```bash
-curl -i http://localhost:8080/s/abc1234
 curl http://localhost:8080/api/v1/analytics/abc1234
 ```
 
