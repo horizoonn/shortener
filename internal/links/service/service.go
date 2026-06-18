@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/horizoonn/shortener/internal/links"
@@ -9,10 +10,16 @@ import (
 
 const MaxCodeGenerationAttempts = 5
 
+type Metrics interface {
+	RecordLinkCreated(isCustom bool)
+	RecordLinkResolved()
+}
+
 type Service struct {
 	linksRepository LinksRepository
 	codeGenerator   CodeGenerator
 	linkCache       LinkCache
+	metrics         Metrics
 }
 
 type LinksRepository interface {
@@ -28,6 +35,7 @@ type CodeGenerator interface {
 type LinkCache interface {
 	GetLink(ctx context.Context, code string) (links.Link, error)
 	SetLink(ctx context.Context, link links.Link) error
+	SetLinkNotFound(ctx context.Context, code string) error
 	DeleteLink(ctx context.Context, code string) error
 }
 
@@ -47,11 +55,20 @@ func NewServiceWithCache(
 	}
 }
 
-func newLink(code string, originalURL string, isCustom bool) links.Link {
+func (s *Service) WithMetrics(metrics Metrics) *Service {
+	if s == nil {
+		return nil
+	}
+	s.metrics = metrics
+	return s
+}
+
+func newLink(code string, originalURL string, isCustom bool, expiresAt *time.Time) links.Link {
 	return links.Link{
 		ID:          uuid.New(),
 		Code:        code,
 		OriginalURL: originalURL,
 		IsCustom:    isCustom,
+		ExpiresAt:   expiresAt,
 	}
 }

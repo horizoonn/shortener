@@ -13,4 +13,5 @@ type Link struct {
 	IsCustom    bool
 	CreatedAt   time.Time
 	DisabledAt  *time.Time
+	ExpiresAt   *time.Time
 }

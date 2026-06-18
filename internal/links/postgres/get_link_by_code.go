@@ -19,7 +19,7 @@ func (r *Repository) GetLinkByCode(ctx context.Context, code string) (links.Link
 	}
 
 	query := `
-	SELECT id, code, original_url, is_custom, created_at, disabled_at
+	SELECT id, code, original_url, is_custom, created_at, disabled_at, expires_at
 	FROM links
 	WHERE code=$1;
 	`

@@ -22,7 +22,7 @@ func (r *Repository) DisableLink(ctx context.Context, code string) (links.Link, 
 	UPDATE links
 	SET disabled_at = COALESCE(disabled_at, now())
 	WHERE code=$1
-	RETURNING id, code, original_url, is_custom, created_at, disabled_at;
+	RETURNING id, code, original_url, is_custom, created_at, disabled_at, expires_at;
 	`
 
 	row := r.pool.QueryRow(ctx, query, code)

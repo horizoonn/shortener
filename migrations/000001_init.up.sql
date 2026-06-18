@@ -5,6 +5,7 @@ CREATE TABLE links (
     is_custom BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     disabled_at TIMESTAMPTZ NULL,
+    expires_at TIMESTAMPTZ NULL,
     CONSTRAINT links_code_unique UNIQUE (code)
 );
 

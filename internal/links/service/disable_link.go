@@ -13,7 +13,10 @@ func (s *Service) DisableLink(ctx context.Context, code string) (links.Link, err
 	if s == nil {
 		return links.Link{}, fmt.Errorf("links service is nil: %w", core_errors.ErrInternal)
 	}
-	if err := links.ValidateCustomAlias(code); err != nil {
+	if s.linksRepository == nil {
+		return links.Link{}, fmt.Errorf("links repository is nil: %w", core_errors.ErrInternal)
+	}
+	if err := links.ValidateCode(code); err != nil {
 		return links.Link{}, fmt.Errorf("validate link code: %w", err)
 	}
 

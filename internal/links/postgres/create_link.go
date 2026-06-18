@@ -26,9 +26,9 @@ func (r *Repository) CreateLink(ctx context.Context, link links.Link) (links.Lin
 	}
 
 	query := `
-	INSERT INTO links (id, code, original_url, is_custom, disabled_at)
-	VALUES ($1, $2, $3, $4, $5)
-	RETURNING id, code, original_url, is_custom, created_at, disabled_at;
+	INSERT INTO links (id, code, original_url, is_custom, disabled_at, expires_at)
+	VALUES ($1, $2, $3, $4, $5, $6)
+	RETURNING id, code, original_url, is_custom, created_at, disabled_at, expires_at;
 	`
 
 	row := r.pool.QueryRow(
@@ -39,6 +39,7 @@ func (r *Repository) CreateLink(ctx context.Context, link links.Link) (links.Lin
 		link.OriginalURL,
 		link.IsCustom,
 		link.DisabledAt,
+		link.ExpiresAt,
 	)
 
 	var linkModel LinkModel
