@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -31,10 +32,11 @@ func (r *Repository) RecentClicks(ctx context.Context, linkID uuid.UUID, filter 
 	`)
 	args := appendClickFilter(&queryBuilder, linkID, filter)
 	args = append(args, limit)
-	fmt.Fprintf(&queryBuilder, `
+	queryBuilder.WriteString(`
 	ORDER BY clicked_at DESC
-	LIMIT $%d;
-	`, len(args))
+	LIMIT $`)
+	queryBuilder.WriteString(strconv.Itoa(len(args)))
+	queryBuilder.WriteString(";\n")
 
 	rows, err := r.pool.Query(ctx, queryBuilder.String(), args...)
 	if err != nil {
@@ -45,14 +47,7 @@ func (r *Repository) RecentClicks(ctx context.Context, linkID uuid.UUID, filter 
 	clicks := make([]analytics.Click, 0)
 	for rows.Next() {
 		var clickModel ClickModel
-		if err := rows.Scan(
-			&clickModel.ID,
-			&clickModel.LinkID,
-			&clickModel.ClickedAt,
-			&clickModel.UserAgent,
-			&clickModel.Referer,
-			&clickModel.IP,
-		); err != nil {
+		if err := clickModel.Scan(rows); err != nil {
 			return nil, fmt.Errorf("scan recent click: %w", err)
 		}
 		clicks = append(clicks, modelToDomain(clickModel))

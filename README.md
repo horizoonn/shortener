@@ -1,6 +1,6 @@
 # Shortener
 
-Shortener is a Go backend service for URL shortening and click analytics. It provides URL creation, redirect tracking, click aggregation, Redis-backed link resolution cache, and a small static UI.
+Shortener is a production-style URL shortener with a Go backend, PostgreSQL storage, Redis cache-aside link resolution, click analytics, and a React frontend.
 
 ## Stack
 
@@ -9,7 +9,9 @@ Shortener is a Go backend service for URL shortening and click analytics. It pro
 - Redis as cache-aside storage for link resolution
 - `github.com/kelseyhightower/envconfig` for configuration
 - `go.uber.org/zap` for logging
+- Prometheus metrics and Grafana dashboards for local observability
 - `golang-migrate` for migrations
+- Vite, React, TypeScript, Tailwind CSS, and shadcn/ui for the frontend
 - Docker Compose for local infrastructure
 
 ## Architecture
@@ -24,11 +26,37 @@ internal/httpapi           HTTP helpers, middleware, router
 internal/links             link domain packages
 internal/analytics         analytics domain packages
 migrations                 database migrations
-web/public                 static assets
+web                         Vite React frontend
+web/public                  built frontend assets served by the backend image
 docs/openapi.yaml          OpenAPI contract
+observability              Prometheus and Grafana provisioning
 ```
 
 ## Quick Start
+
+For the full app in Docker Compose:
+
+```bash
+cp .env.example .env
+make dev-up
+```
+
+Open:
+
+```text
+http://localhost:5173
+```
+
+The Vite dev server proxies API and redirect requests to the backend container.
+If `web/node_modules` is missing, `make dev-up` installs frontend dependencies with `npm ci` before starting Compose.
+
+To stop the environment:
+
+```bash
+make dev-down
+```
+
+For backend-only local development:
 
 ```bash
 cp .env.example .env
@@ -44,6 +72,30 @@ For a fully containerized run, use:
 cp .env.example .env
 make shortener-deploy
 ```
+
+Then open:
+
+```text
+http://localhost:8080
+```
+
+`make shortener-deploy` builds the React assets first and then packages `web/public` into the Go service image.
+
+To start the backend with Prometheus and Grafana:
+
+```bash
+cp .env.example .env
+make observability-up
+```
+
+Open:
+
+```text
+Prometheus: http://localhost:9090
+Grafana:    http://localhost:3000
+```
+
+Default Grafana credentials are `admin` / `admin`. The Prometheus datasource and `Shortener Overview` dashboard are provisioned from the repository. The backend exposes metrics at `GET /metrics`; keep this endpoint internal or protected in real deployments.
 
 ## Makefile Commands
 
@@ -76,10 +128,22 @@ make shortener-deploy
 | `make shortener-deploy` | Build and run the service in Docker Compose. |
 | `make shortener-undeploy` | Stop the service container. |
 | `make shortener-logs` | Tail service logs. |
+| `make observability-up` | Start backend, Prometheus, and Grafana. |
+| `make observability-down` | Stop Prometheus and Grafana. |
+| `make observability-logs` | Tail Prometheus and Grafana logs. |
+| `make web-install` | Install frontend dependencies. |
+| `make web-dev` | Run the Vite dev server locally. |
+| `make web-build` | Build frontend assets into `web/public`. |
+| `make web-lint` | Lint frontend code. |
+| `make web-audit` | Audit frontend dependencies. |
+| `make web-check` | Run frontend lint, build, and audit. |
+| `make dev-up` | Start backend and frontend with Docker Compose. |
+| `make dev-down` | Stop the Docker Compose development environment. |
+| `make dev-logs` | Tail backend and frontend logs. |
 
 ## CI
 
-GitHub Actions runs fast checks, race tests, and integration tests as separate jobs. The workflow uses the Go version from `go.mod`, caches modules with `go.sum`, and keeps the default token limited to read-only repository contents.
+GitHub Actions runs frontend checks, Go checks, race tests, and integration tests as separate jobs. The workflow uses the Go version from `go.mod`, Node.js 20 for the frontend, dependency caches for Go and npm, and keeps the default token limited to read-only repository contents.
 
 ## API
 
@@ -87,15 +151,23 @@ GitHub Actions runs fast checks, race tests, and integration tests as separate j
 | --- | --- | --- |
 | `GET` | `/healthz` | Implemented. |
 | `GET` | `/readyz` | Implemented. |
+| `GET` | `/metrics` | Implemented. Prometheus/OpenMetrics exposition. |
 | `POST` | `/api/v1/shorten` | Implemented. |
 | `GET` | `/s/{code}` | Implemented. |
 | `GET` | `/api/v1/analytics/{code}` | Implemented. |
+| `GET` | `/api/v1/links/{code}/qr` | Implemented. Returns a PNG QR code for the short URL. |
 | `DELETE` | `/api/v1/links/{code}` | Implemented. Soft-disables a short link and invalidates its cache entry. |
+
+Analytics returns exact `total_clicks` for the requested filter. If `from` and `to` are omitted, bucketed aggregations and recent clicks default to the last 90 days; user-agent aggregation is capped to the top 50 values. Daily and monthly buckets use `SHORTENER_TIME_ZONE`.
 
 ## Examples
 
 ```bash
 curl -i http://localhost:8080/healthz
+```
+
+```bash
+curl -i http://localhost:8080/metrics
 ```
 
 ```bash
@@ -116,6 +188,10 @@ curl -i http://localhost:8080/s/abc1234
 
 ```bash
 curl 'http://localhost:8080/api/v1/analytics/abc1234?from=2026-06-01&to=2026-06-12&recent_limit=20'
+```
+
+```bash
+curl -o qr.png 'http://localhost:8080/api/v1/links/abc1234/qr?size=256'
 ```
 
 ```bash
@@ -149,3 +225,15 @@ curl -i -X DELETE http://localhost:8080/api/v1/links/abc1234
 | `SHORTENER_REDIS_DB` | `0` | Redis database number. |
 | `SHORTENER_REDIS_TIMEOUT` | `2s` | Redis dial, read, and write timeout. |
 | `SHORTENER_REDIS_CACHE_TTL` | `10m` | Link resolution cache TTL. |
+| `SHORTENER_REDIS_MISS_TTL` | `30s` | Negative cache TTL for missing or disabled links. |
+| `WEB_PORT` | `5173` | Vite dev server port used by Docker Compose. |
+| `PROMETHEUS_PORT` | `9090` | Prometheus UI port used by Docker Compose. |
+| `GRAFANA_PORT` | `3000` | Grafana UI port used by Docker Compose. |
+| `GRAFANA_ADMIN_USER` | `admin` | Local Grafana admin username. |
+| `GRAFANA_ADMIN_PASSWORD` | `admin` | Local Grafana admin password. |
+
+## Observability
+
+Prometheus scrapes `shortener:8080/metrics` inside the Docker Compose network. Grafana uses file provisioning for the Prometheus datasource and dashboard, so the local observability stack is reproducible from version-controlled files.
+
+Application metrics intentionally use low-cardinality labels only: HTTP method, route pattern, and status code. Dynamic values such as short codes, original URLs, IP addresses, user agents, referers, and request IDs are not used as Prometheus labels.

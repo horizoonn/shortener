@@ -9,17 +9,19 @@ import (
 )
 
 type CreateLinkRequest struct {
-	OriginalURL string  `json:"original_url" validate:"required,url"`
-	CustomAlias *string `json:"custom_alias" validate:"omitempty,min=3,max=64"`
+	OriginalURL string     `json:"original_url" validate:"required,url"`
+	CustomAlias *string    `json:"custom_alias" validate:"omitempty,min=3,max=64"`
+	ExpiresAt   *time.Time `json:"expires_at"`
 }
 
 type CreateLinkResponse struct {
-	ID          uuid.UUID `json:"id"`
-	Code        string    `json:"code"`
-	OriginalURL string    `json:"original_url"`
-	ShortURL    string    `json:"short_url"`
-	IsCustom    bool      `json:"is_custom"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID          uuid.UUID  `json:"id"`
+	Code        string     `json:"code"`
+	OriginalURL string     `json:"original_url"`
+	ShortURL    string     `json:"short_url"`
+	IsCustom    bool       `json:"is_custom"`
+	CreatedAt   time.Time  `json:"created_at"`
+	ExpiresAt   *time.Time `json:"expires_at,omitempty"`
 }
 
 func createLinkResponseFromDomain(link links.Link, shortURL string) CreateLinkResponse {
@@ -30,6 +32,7 @@ func createLinkResponseFromDomain(link links.Link, shortURL string) CreateLinkRe
 		ShortURL:    shortURL,
 		IsCustom:    link.IsCustom,
 		CreatedAt:   link.CreatedAt,
+		ExpiresAt:   link.ExpiresAt,
 	}
 }
 

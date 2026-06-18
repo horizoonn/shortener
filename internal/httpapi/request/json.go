@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/go-playground/validator/v10"
 	core_errors "github.com/horizoonn/shortener/internal/errors"
@@ -22,6 +23,11 @@ func DecodeLimitedJSON(w http.ResponseWriter, r *http.Request, dst any, limit in
 }
 
 func DecodeAndValidateJSON(w http.ResponseWriter, r *http.Request, dst any, limit int64) error {
+	contentType := r.Header.Get("Content-Type")
+	if !strings.HasPrefix(strings.ToLower(contentType), "application/json") {
+		return fmt.Errorf("content-type must be application/json: %w", core_errors.ErrInvalidArgument)
+	}
+
 	if err := DecodeLimitedJSON(w, r, dst, limit); err != nil {
 		return err
 	}

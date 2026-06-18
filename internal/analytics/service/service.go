@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/horizoonn/shortener/internal/analytics"
@@ -87,27 +88,29 @@ func (s *Service) GetLinkAnalytics(
 		return analytics.LinkAnalytics{}, fmt.Errorf("recent limit must be less than or equal to %d: %w", analytics.MaxRecentClicksLimit, core_errors.ErrInvalidArgument)
 	}
 
+	aggregationFilter := boundedAggregationFilter(filter)
+
 	totalClicks, err := s.clicksRepository.CountClicks(ctx, linkID, filter)
 	if err != nil {
 		return analytics.LinkAnalytics{}, fmt.Errorf("count clicks: %w", err)
 	}
 
-	clicksByDay, err := s.clicksRepository.CountClicksByDay(ctx, linkID, filter)
+	clicksByDay, err := s.clicksRepository.CountClicksByDay(ctx, linkID, aggregationFilter)
 	if err != nil {
 		return analytics.LinkAnalytics{}, fmt.Errorf("count clicks by day: %w", err)
 	}
 
-	clicksByMonth, err := s.clicksRepository.CountClicksByMonth(ctx, linkID, filter)
+	clicksByMonth, err := s.clicksRepository.CountClicksByMonth(ctx, linkID, aggregationFilter)
 	if err != nil {
 		return analytics.LinkAnalytics{}, fmt.Errorf("count clicks by month: %w", err)
 	}
 
-	clicksByUserAgent, err := s.clicksRepository.CountClicksByUserAgent(ctx, linkID, filter)
+	clicksByUserAgent, err := s.clicksRepository.CountClicksByUserAgent(ctx, linkID, aggregationFilter)
 	if err != nil {
 		return analytics.LinkAnalytics{}, fmt.Errorf("count clicks by user agent: %w", err)
 	}
 
-	recentClicks, err := s.clicksRepository.RecentClicks(ctx, linkID, filter, recentLimit)
+	recentClicks, err := s.clicksRepository.RecentClicks(ctx, linkID, aggregationFilter, recentLimit)
 	if err != nil {
 		return analytics.LinkAnalytics{}, fmt.Errorf("get recent clicks: %w", err)
 	}
@@ -119,4 +122,15 @@ func (s *Service) GetLinkAnalytics(
 		ClicksByUserAgent: clicksByUserAgent,
 		RecentClicks:      recentClicks,
 	}, nil
+}
+
+func boundedAggregationFilter(filter analytics.ClickFilter) analytics.ClickFilter {
+	if filter.From != nil || filter.To != nil {
+		return filter
+	}
+
+	from := time.Now().UTC().AddDate(0, 0, -analytics.DefaultAggregationDaysBack)
+	return analytics.ClickFilter{
+		From: &from,
+	}
 }

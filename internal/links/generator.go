@@ -33,6 +33,9 @@ func NewCodeGenerator(alphabet string, length int, reader io.Reader) (*CodeGener
 
 	seen := make(map[rune]struct{}, len(alphabet))
 	for _, char := range alphabet {
+		if char > 127 {
+			return nil, fmt.Errorf("code alphabet contains non-ASCII character %q: %w", char, core_errors.ErrInvalidArgument)
+		}
 		if _, ok := seen[char]; ok {
 			return nil, fmt.Errorf("code alphabet contains duplicate character %q: %w", char, core_errors.ErrInvalidArgument)
 		}

@@ -7,6 +7,7 @@ export
 
 APP_NAME := shortener
 CMD := ./cmd/shortener
+GO_PACKAGES := ./cmd/... ./internal/...
 ENV_SERVICES := postgres redis
 MIGRATIONS_DIR := migrations
 DATABASE_URL ?= $(SHORTENER_DATABASE_URL)
@@ -19,16 +20,16 @@ GOLANGCI_LINT_VERSION := v2.12.2
 STATICCHECK_VERSION := 2026.1
 ACTIONLINT_VERSION := v1.7.12
 
-.PHONY: help fmt fmt-check vet lint staticcheck actionlint test test-cover test-cover-profile test-cover-func test-cover-html test-race test-integration test-integration-cover test-integration-cover-html check check-all env-up env-down env-cleanup migrate-create migrate-up migrate-down shortener-run shortener-deploy shortener-undeploy shortener-logs
+.PHONY: help fmt fmt-check vet lint staticcheck actionlint test test-cover test-cover-profile test-cover-func test-cover-html test-race test-integration test-integration-cover test-integration-cover-html check check-all env-up env-down env-cleanup migrate-create migrate-up migrate-down shortener-run shortener-deploy shortener-undeploy shortener-logs observability-up observability-down observability-logs web-install web-dev web-build web-lint web-audit web-check dev-up dev-down dev-logs
 
 help:
 	@awk 'BEGIN {FS = ":.*##"; printf "Available targets:\n"} /^[a-zA-Z0-9_-]+:.*##/ {printf "  %-22s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 fmt: ## Format Go files.
-	gofmt -w $$(find . -path './.out' -prune -o -name '*.go' -print)
+	gofmt -w $$(find cmd internal -name '*.go' -print)
 
 fmt-check: ## Check Go formatting.
-	@files="$$(gofmt -l $$(find . -path './.out' -prune -o -name '*.go' -print))"; \
+	@files="$$(gofmt -l $$(find cmd internal -name '*.go' -print))"; \
 	if [ -n "$$files" ]; then \
 		echo "Files require gofmt:"; \
 		echo "$$files"; \
@@ -36,26 +37,26 @@ fmt-check: ## Check Go formatting.
 	fi
 
 vet: ## Run go vet.
-	go vet ./...
+	go vet $(GO_PACKAGES)
 
 lint: ## Run golangci-lint.
-	go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION) run --allow-parallel-runners ./...
+	go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION) run --allow-parallel-runners $(GO_PACKAGES)
 
 staticcheck: ## Run staticcheck.
-	go run honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION) ./...
+	go run honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION) $(GO_PACKAGES)
 
 actionlint: ## Lint GitHub Actions workflows.
 	go run github.com/rhysd/actionlint/cmd/actionlint@$(ACTIONLINT_VERSION)
 
 test: ## Run unit tests.
-	go test ./...
+	go test $(GO_PACKAGES)
 
 test-cover: ## Run unit tests with coverage summary.
-	go test ./... -cover
+	go test $(GO_PACKAGES) -cover
 
 test-cover-profile: ## Write unit test coverage profile.
 	mkdir -p $(COVERAGE_DIR)
-	go test ./... -coverprofile=$(COVERAGE_PROFILE)
+	go test $(GO_PACKAGES) -coverprofile=$(COVERAGE_PROFILE)
 
 test-cover-func: test-cover-profile ## Show unit test coverage by function.
 	go tool cover -func=$(COVERAGE_PROFILE)
@@ -65,19 +66,19 @@ test-cover-html: test-cover-profile ## Write unit test coverage HTML report.
 	@echo "Coverage HTML: $(COVERAGE_HTML)"
 
 test-race: ## Run unit tests with race detector.
-	go test -race ./...
+	go test -race $(GO_PACKAGES)
 
 test-integration: ## Run integration tests.
-	go test -tags=integration ./...
+	go test -tags=integration $(GO_PACKAGES)
 
 test-integration-cover: ## Write integration coverage profile and show function coverage.
 	mkdir -p $(COVERAGE_DIR)
-	go test -tags=integration ./... -coverprofile=$(INTEGRATION_COVERAGE_PROFILE)
+	go test -tags=integration $(GO_PACKAGES) -coverprofile=$(INTEGRATION_COVERAGE_PROFILE)
 	go tool cover -func=$(INTEGRATION_COVERAGE_PROFILE)
 
 test-integration-cover-html: ## Write integration coverage HTML report.
 	mkdir -p $(COVERAGE_DIR)
-	go test -tags=integration ./... -coverprofile=$(INTEGRATION_COVERAGE_PROFILE)
+	go test -tags=integration $(GO_PACKAGES) -coverprofile=$(INTEGRATION_COVERAGE_PROFILE)
 	go tool cover -html=$(INTEGRATION_COVERAGE_PROFILE) -o $(INTEGRATION_COVERAGE_HTML)
 	@echo "Integration coverage HTML: $(INTEGRATION_COVERAGE_HTML)"
 
@@ -109,7 +110,7 @@ migrate-down: ## Roll back one migration.
 shortener-run: ## Run the service locally.
 	go run $(CMD)
 
-shortener-deploy: ## Build and start the service with Docker Compose.
+shortener-deploy: web-build ## Build and start the service with Docker Compose.
 	docker compose up -d --build $(APP_NAME)
 
 shortener-undeploy: ## Stop the service.
@@ -117,3 +118,39 @@ shortener-undeploy: ## Stop the service.
 
 shortener-logs: ## Tail service logs.
 	docker compose logs -f $(APP_NAME)
+
+observability-up: ## Start backend, Prometheus, and Grafana.
+	docker compose --profile observability up -d --build shortener prometheus grafana
+
+observability-down: ## Stop Prometheus and Grafana.
+	docker compose --profile observability stop prometheus grafana
+
+observability-logs: ## Tail Prometheus and Grafana logs.
+	docker compose --profile observability logs -f prometheus grafana
+
+web-install: ## Install frontend dependencies.
+	cd web && npm ci
+
+web-dev: ## Run frontend dev server locally.
+	cd web && npm run dev
+
+web-build: ## Build frontend assets into web/public.
+	cd web && npm run build
+
+web-lint: ## Lint frontend.
+	cd web && npm run lint
+
+web-audit: ## Audit frontend dependencies.
+	cd web && npm audit
+
+web-check: web-lint web-build web-audit ## Run frontend checks.
+
+dev-up: ## Start backend and frontend with Docker Compose.
+	@test -d web/node_modules || $(MAKE) web-install
+	docker compose up --build shortener frontend
+
+dev-down: ## Stop backend and frontend Docker Compose environment.
+	docker compose down
+
+dev-logs: ## Tail backend and frontend logs.
+	docker compose logs -f shortener frontend

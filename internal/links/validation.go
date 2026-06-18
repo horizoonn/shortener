@@ -12,6 +12,9 @@ import (
 const (
 	CustomAliasMinLength = 3
 	CustomAliasMaxLength = 64
+	CodeMinLength        = 1
+	CodeMaxLength        = CustomAliasMaxLength
+	MaxOriginalURLLength = 2048
 )
 
 var reservedCustomAliases = map[string]struct{}{
@@ -21,14 +24,19 @@ var reservedCustomAliases = map[string]struct{}{
 	"swagger": {},
 	"static":  {},
 	"assets":  {},
+	"docs":    {},
+	"s":       {},
 }
 
 func ValidateOriginalURL(rawURL string) (string, error) {
 	if rawURL == "" {
 		return "", fmt.Errorf("original URL is empty: %w", core_errors.ErrInvalidArgument)
 	}
-	if strings.TrimSpace(rawURL) != rawURL {
-		return "", fmt.Errorf("original URL contains leading or trailing whitespace: %w", core_errors.ErrInvalidArgument)
+	if len(rawURL) > MaxOriginalURLLength {
+		return "", fmt.Errorf("original URL is longer than %d characters: %w", MaxOriginalURLLength, core_errors.ErrInvalidArgument)
+	}
+	if strings.ContainsFunc(rawURL, unicode.IsSpace) {
+		return "", fmt.Errorf("original URL contains whitespace: %w", core_errors.ErrInvalidArgument)
 	}
 
 	parsedURL, err := url.Parse(rawURL)
@@ -63,12 +71,38 @@ func ValidateCustomAlias(alias string) error {
 		return fmt.Errorf("custom alias %q is reserved: %w", alias, core_errors.ErrInvalidArgument)
 	}
 
-	for _, char := range alias {
+	if err := validateCodeChars(alias, "custom alias"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func ValidateCode(code string) error {
+	if code == "" {
+		return fmt.Errorf("link code is empty: %w", core_errors.ErrInvalidArgument)
+	}
+	if len(code) < CodeMinLength {
+		return fmt.Errorf("link code is shorter than %d characters: %w", CodeMinLength, core_errors.ErrInvalidArgument)
+	}
+	if len(code) > CodeMaxLength {
+		return fmt.Errorf("link code is longer than %d characters: %w", CodeMaxLength, core_errors.ErrInvalidArgument)
+	}
+
+	if err := validateCodeChars(code, "link code"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func validateCodeChars(value string, label string) error {
+	for _, char := range value {
 		if isAllowedAliasChar(char) {
 			continue
 		}
 
-		return fmt.Errorf("custom alias contains invalid character %q: %w", char, core_errors.ErrInvalidArgument)
+		return fmt.Errorf("%s contains invalid character %q: %w", label, char, core_errors.ErrInvalidArgument)
 	}
 
 	return nil

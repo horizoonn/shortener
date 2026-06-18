@@ -55,12 +55,14 @@ func New(cfg config.LoggerConfig) (*Logger, error) {
 
 	encoderConfig := zap.NewDevelopmentEncoderConfig()
 	encoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02T15:04:05.000000")
-	encoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	consoleEncoderConfig := encoderConfig
+	consoleEncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	fileEncoderConfig := encoderConfig
+	fileEncoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
 
-	encoder := zapcore.NewConsoleEncoder(encoderConfig)
 	core := zapcore.NewTee(
-		zapcore.NewCore(encoder, zapcore.AddSync(os.Stdout), level),
-		zapcore.NewCore(encoder, zapcore.AddSync(logFile), level),
+		zapcore.NewCore(zapcore.NewConsoleEncoder(consoleEncoderConfig), zapcore.AddSync(os.Stdout), level),
+		zapcore.NewCore(zapcore.NewConsoleEncoder(fileEncoderConfig), zapcore.AddSync(logFile), level),
 	)
 
 	return &Logger{

@@ -2,12 +2,18 @@ package pgx
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/horizoonn/shortener/internal/config"
 	"github.com/horizoonn/shortener/internal/storage/postgres/pool"
 	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+const (
+	pingAttempts = 5
+	pingBackoff  = 500 * time.Millisecond
 )
 
 type Pool struct {
@@ -25,12 +31,18 @@ func NewPool(ctx context.Context, cfg config.PostgresConfig) (*Pool, error) {
 	pgxConfig.MaxConns = cfg.MaxConns
 	pgxConfig.MinConns = cfg.MinConns
 	pgxConfig.MaxConnIdleTime = cfg.MaxConnIdleTime
+	if cfg.TimeZone != "" {
+		if pgxConfig.ConnConfig.RuntimeParams == nil {
+			pgxConfig.ConnConfig.RuntimeParams = make(map[string]string)
+		}
+		pgxConfig.ConnConfig.RuntimeParams["TimeZone"] = cfg.TimeZone
+	}
 
 	pool, err := pgxpool.NewWithConfig(ctx, pgxConfig)
 	if err != nil {
 		return nil, fmt.Errorf("create pgxpool with config: %w", err)
 	}
-	if err := pool.Ping(ctx); err != nil {
+	if err := pingWithRetry(ctx, pool, cfg.Timeout); err != nil {
 		pool.Close()
 		return nil, fmt.Errorf("ping pgxpool: %w", err)
 	}
@@ -39,6 +51,36 @@ func NewPool(ctx context.Context, cfg config.PostgresConfig) (*Pool, error) {
 		Pool:      pool,
 		opTimeout: cfg.Timeout,
 	}, nil
+}
+
+func pingWithRetry(ctx context.Context, pool *pgxpool.Pool, timeout time.Duration) error {
+	var lastErr error
+
+	for attempt := 1; attempt <= pingAttempts; attempt++ {
+		pingCtx, cancel := context.WithTimeout(ctx, timeout)
+		err := pool.Ping(pingCtx)
+		cancel()
+		if err == nil {
+			return nil
+		}
+		lastErr = err
+		if errors.Is(ctx.Err(), context.Canceled) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return ctx.Err()
+		}
+		if attempt == pingAttempts {
+			break
+		}
+
+		timer := time.NewTimer(pingBackoff)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
+
+	return lastErr
 }
 
 func (p *Pool) Query(ctx context.Context, sql string, args ...any) (pool.Rows, error) {
