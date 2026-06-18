@@ -9,6 +9,4 @@
 !internal/
 !internal/**
 
-!web/
-!web/public/
 !web/public/**
