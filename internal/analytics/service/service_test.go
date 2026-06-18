@@ -143,30 +143,35 @@ func TestServiceGetLinkAnalyticsSuccess(t *testing.T) {
 	clickedAt := time.Date(2026, 6, 12, 12, 34, 56, 0, time.UTC)
 	repository := fakeClicksRepository{
 		countClicks: func(_ context.Context, gotLinkID uuid.UUID, gotFilter analytics.ClickFilter) (int64, error) {
-			assertAnalyticsRequest(t, gotLinkID, linkID, gotFilter, filter)
+			if err := validateAnalyticsRequest(gotLinkID, linkID, gotFilter, filter); err != nil {
+				return 0, err
+			}
 			return 42, nil
 		},
 		countClicksByDay: func(_ context.Context, gotLinkID uuid.UUID, gotFilter analytics.ClickFilter) ([]analytics.TimeBucketCount, error) {
-			assertAnalyticsRequest(t, gotLinkID, linkID, gotFilter, filter)
+			if err := validateAnalyticsRequest(gotLinkID, linkID, gotFilter, filter); err != nil {
+				return nil, err
+			}
 			return []analytics.TimeBucketCount{{Bucket: clickedAt, Count: 10}}, nil
 		},
 		countClicksByMonth: func(_ context.Context, gotLinkID uuid.UUID, gotFilter analytics.ClickFilter) ([]analytics.TimeBucketCount, error) {
-			assertAnalyticsRequest(t, gotLinkID, linkID, gotFilter, filter)
+			if err := validateAnalyticsRequest(gotLinkID, linkID, gotFilter, filter); err != nil {
+				return nil, err
+			}
 			return []analytics.TimeBucketCount{{Bucket: clickedAt, Count: 42}}, nil
 		},
 		countClicksByUserAgent: func(_ context.Context, gotLinkID uuid.UUID, gotFilter analytics.ClickFilter) ([]analytics.UserAgentCount, error) {
-			assertAnalyticsRequest(t, gotLinkID, linkID, gotFilter, filter)
+			if err := validateAnalyticsRequest(gotLinkID, linkID, gotFilter, filter); err != nil {
+				return nil, err
+			}
 			return []analytics.UserAgentCount{{UserAgent: "Mozilla/5.0", Count: 30}}, nil
 		},
 		recentClicks: func(_ context.Context, gotLinkID uuid.UUID, gotFilter analytics.ClickFilter, limit int) ([]analytics.Click, error) {
-			if gotLinkID != linkID {
-				t.Fatalf("expected link ID %s, got %s", linkID, gotLinkID)
-			}
-			if gotFilter != filter {
-				t.Fatalf("expected filter %+v, got %+v", filter, gotFilter)
+			if err := validateAnalyticsRequest(gotLinkID, linkID, gotFilter, filter); err != nil {
+				return nil, err
 			}
 			if limit != 20 {
-				t.Fatalf("expected limit 20, got %d", limit)
+				return nil, fmt.Errorf("expected limit 20, got %d", limit)
 			}
 			return []analytics.Click{{ID: uuid.New(), LinkID: linkID, ClickedAt: clickedAt, UserAgent: "Mozilla/5.0"}}, nil
 		},
@@ -205,19 +210,85 @@ func TestServiceGetLinkAnalyticsInvalidLimit(t *testing.T) {
 	}
 }
 
-func assertAnalyticsRequest(
-	t *testing.T,
+func TestServiceGetLinkAnalyticsUsesDefaultAggregationWindow(t *testing.T) {
+	t.Parallel()
+
+	linkID := uuid.New()
+	repository := fakeClicksRepository{
+		countClicks: func(_ context.Context, gotLinkID uuid.UUID, gotFilter analytics.ClickFilter) (int64, error) {
+			if err := validateAnalyticsRequest(gotLinkID, linkID, gotFilter, analytics.ClickFilter{}); err != nil {
+				return 0, err
+			}
+			return 10, nil
+		},
+		countClicksByDay: func(_ context.Context, gotLinkID uuid.UUID, gotFilter analytics.ClickFilter) ([]analytics.TimeBucketCount, error) {
+			if err := validateDefaultAggregationRequest(gotLinkID, linkID, gotFilter); err != nil {
+				return nil, err
+			}
+			return nil, nil
+		},
+		countClicksByMonth: func(_ context.Context, gotLinkID uuid.UUID, gotFilter analytics.ClickFilter) ([]analytics.TimeBucketCount, error) {
+			if err := validateDefaultAggregationRequest(gotLinkID, linkID, gotFilter); err != nil {
+				return nil, err
+			}
+			return nil, nil
+		},
+		countClicksByUserAgent: func(_ context.Context, gotLinkID uuid.UUID, gotFilter analytics.ClickFilter) ([]analytics.UserAgentCount, error) {
+			if err := validateDefaultAggregationRequest(gotLinkID, linkID, gotFilter); err != nil {
+				return nil, err
+			}
+			return nil, nil
+		},
+		recentClicks: func(_ context.Context, gotLinkID uuid.UUID, gotFilter analytics.ClickFilter, limit int) ([]analytics.Click, error) {
+			if err := validateDefaultAggregationRequest(gotLinkID, linkID, gotFilter); err != nil {
+				return nil, err
+			}
+			if limit != 20 {
+				return nil, fmt.Errorf("expected limit 20, got %d", limit)
+			}
+			return nil, nil
+		},
+	}
+	service := NewService(repository)
+
+	if _, err := service.GetLinkAnalytics(context.Background(), linkID, analytics.ClickFilter{}, 20); err != nil {
+		t.Fatalf("get link analytics: %v", err)
+	}
+}
+
+func validateAnalyticsRequest(
 	gotLinkID uuid.UUID,
 	wantLinkID uuid.UUID,
 	gotFilter analytics.ClickFilter,
 	wantFilter analytics.ClickFilter,
-) {
-	t.Helper()
-
+) error {
 	if gotLinkID != wantLinkID {
-		t.Fatalf("expected link ID %s, got %s", wantLinkID, gotLinkID)
+		return fmt.Errorf("expected link ID %s, got %s", wantLinkID, gotLinkID)
 	}
 	if gotFilter != wantFilter {
-		t.Fatalf("expected filter %+v, got %+v", wantFilter, gotFilter)
+		return fmt.Errorf("expected filter %+v, got %+v", wantFilter, gotFilter)
 	}
+	return nil
+}
+
+func validateDefaultAggregationRequest(
+	gotLinkID uuid.UUID,
+	wantLinkID uuid.UUID,
+	gotFilter analytics.ClickFilter,
+) error {
+	if gotLinkID != wantLinkID {
+		return fmt.Errorf("expected link ID %s, got %s", wantLinkID, gotLinkID)
+	}
+	if gotFilter.From == nil {
+		return fmt.Errorf("expected default aggregation from")
+	}
+	if gotFilter.To != nil {
+		return fmt.Errorf("expected empty aggregation to, got %s", gotFilter.To)
+	}
+	earliest := time.Now().UTC().AddDate(0, 0, -analytics.DefaultAggregationDaysBack-1)
+	latest := time.Now().UTC()
+	if gotFilter.From.Before(earliest) || gotFilter.From.After(latest) {
+		return fmt.Errorf("expected default from between %s and %s, got %s", earliest, latest, *gotFilter.From)
+	}
+	return nil
 }

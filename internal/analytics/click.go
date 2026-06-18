@@ -15,7 +15,11 @@ type Click struct {
 	IP        *string
 }
 
-const MaxRecentClicksLimit = 500
+const (
+	MaxRecentClicksLimit       = 500
+	MaxUserAgentAggregation    = 50
+	DefaultAggregationDaysBack = 90
+)
 
 type ClickFilter struct {
 	From *time.Time
