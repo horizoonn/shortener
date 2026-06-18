@@ -20,6 +20,7 @@ type Config struct {
 	RedisAddr     string        `envconfig:"REDIS_ADDR" default:"localhost:6379"`
 	RedisPassword string        `envconfig:"REDIS_PASSWORD" default:""`
 	RedisDB       int           `envconfig:"REDIS_DB" default:"0"`
+	RedisTimeout  time.Duration `envconfig:"REDIS_TIMEOUT" default:"2s"`
 	RedisCacheTTL time.Duration `envconfig:"REDIS_CACHE_TTL" default:"10m"`
 }
 
@@ -127,6 +128,18 @@ func validate(cfg Config) error {
 	}
 	if cfg.Postgres.MaxConnIdleTime <= 0 {
 		return fmt.Errorf("postgres max conn idle time must be positive")
+	}
+	if cfg.RedisAddr == "" {
+		return fmt.Errorf("redis addr is required")
+	}
+	if cfg.RedisDB < 0 {
+		return fmt.Errorf("redis db must be non-negative")
+	}
+	if cfg.RedisTimeout <= 0 {
+		return fmt.Errorf("redis timeout must be positive")
+	}
+	if cfg.RedisCacheTTL <= 0 {
+		return fmt.Errorf("redis cache TTL must be positive")
 	}
 	return nil
 }

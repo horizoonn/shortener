@@ -121,4 +121,5 @@ curl http://localhost:8080/api/v1/analytics/abc1234
 | `SHORTENER_REDIS_ADDR` | `localhost:6379` | Redis address. |
 | `SHORTENER_REDIS_PASSWORD` | empty | Redis password. |
 | `SHORTENER_REDIS_DB` | `0` | Redis database number. |
+| `SHORTENER_REDIS_TIMEOUT` | `2s` | Redis dial, read, and write timeout. |
 | `SHORTENER_REDIS_CACHE_TTL` | `10m` | Link resolution cache TTL. |

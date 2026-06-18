@@ -16,6 +16,10 @@ func TestLoadUsesDocumentedEnvironmentNames(t *testing.T) {
 	t.Setenv("SHORTENER_POSTGRES_MAX_CONNS", "7")
 	t.Setenv("SHORTENER_POSTGRES_MIN_CONNS", "1")
 	t.Setenv("SHORTENER_POSTGRES_MAX_CONN_IDLE_TIME", "2m")
+	t.Setenv("SHORTENER_REDIS_ADDR", "redis:6379")
+	t.Setenv("SHORTENER_REDIS_DB", "2")
+	t.Setenv("SHORTENER_REDIS_TIMEOUT", "1500ms")
+	t.Setenv("SHORTENER_REDIS_CACHE_TTL", "3m")
 
 	cfg, err := Load()
 	if err != nil {
@@ -51,5 +55,17 @@ func TestLoadUsesDocumentedEnvironmentNames(t *testing.T) {
 	}
 	if cfg.Postgres.MaxConnIdleTime != 2*time.Minute {
 		t.Fatalf("expected postgres max idle time 2m, got %s", cfg.Postgres.MaxConnIdleTime)
+	}
+	if cfg.RedisAddr != "redis:6379" {
+		t.Fatalf("expected redis addr from SHORTENER_REDIS_ADDR, got %q", cfg.RedisAddr)
+	}
+	if cfg.RedisDB != 2 {
+		t.Fatalf("expected redis db 2, got %d", cfg.RedisDB)
+	}
+	if cfg.RedisTimeout != 1500*time.Millisecond {
+		t.Fatalf("expected redis timeout 1500ms, got %s", cfg.RedisTimeout)
+	}
+	if cfg.RedisCacheTTL != 3*time.Minute {
+		t.Fatalf("expected redis cache TTL 3m, got %s", cfg.RedisCacheTTL)
 	}
 }
