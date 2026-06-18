@@ -65,17 +65,19 @@ func (g *fakeCodeGenerator) Generate() (string, error) {
 type fakeLinkCache struct {
 	getLink    func(ctx context.Context, code string) (links.Link, error)
 	setLink    func(ctx context.Context, link links.Link) error
+	setMissing func(ctx context.Context, code string) error
 	deleteLink func(ctx context.Context, code string) error
 
-	getCalls    int
-	setCalls    int
-	deleteCalls int
+	getCalls        int
+	setCalls        int
+	setMissingCalls int
+	deleteCalls     int
 }
 
 func (c *fakeLinkCache) GetLink(ctx context.Context, code string) (links.Link, error) {
 	c.getCalls++
 	if c.getLink == nil {
-		return links.Link{}, fmt.Errorf("cache miss: %w", core_errors.ErrNotFound)
+		return links.Link{}, fmt.Errorf("cache miss: %w", core_errors.ErrCacheMiss)
 	}
 
 	return c.getLink(ctx, code)
@@ -88,6 +90,15 @@ func (c *fakeLinkCache) SetLink(ctx context.Context, link links.Link) error {
 	}
 
 	return c.setLink(ctx, link)
+}
+
+func (c *fakeLinkCache) SetLinkNotFound(ctx context.Context, code string) error {
+	c.setMissingCalls++
+	if c.setMissing == nil {
+		return nil
+	}
+
+	return c.setMissing(ctx, code)
 }
 
 func (c *fakeLinkCache) DeleteLink(ctx context.Context, code string) error {
@@ -123,7 +134,7 @@ func TestServiceCreateLinkGeneratedSuccess(t *testing.T) {
 
 	service := NewService(repository, generator)
 
-	link, err := service.CreateLink(context.Background(), "https://example.com", nil)
+	link, err := service.CreateLink(context.Background(), "https://example.com", nil, nil)
 	if err != nil {
 		t.Fatalf("create link: %v", err)
 	}
@@ -154,7 +165,7 @@ func TestServiceCreateLinkCustomAliasSuccess(t *testing.T) {
 
 	service := NewService(repository, generator)
 
-	link, err := service.CreateLink(context.Background(), "https://example.com", &customAlias)
+	link, err := service.CreateLink(context.Background(), "https://example.com", &customAlias, nil)
 	if err != nil {
 		t.Fatalf("create custom link: %v", err)
 	}
@@ -171,7 +182,7 @@ func TestServiceCreateLinkInvalidOriginalURL(t *testing.T) {
 
 	service := NewService(fakeLinksRepository{}, &fakeCodeGenerator{})
 
-	_, err := service.CreateLink(context.Background(), "ftp://example.com", nil)
+	_, err := service.CreateLink(context.Background(), "ftp://example.com", nil, nil)
 	if !errors.Is(err, core_errors.ErrInvalidArgument) {
 		t.Fatalf("expected invalid argument, got %v", err)
 	}
@@ -183,7 +194,7 @@ func TestServiceCreateLinkInvalidCustomAlias(t *testing.T) {
 	customAlias := "bad alias"
 	service := NewService(fakeLinksRepository{}, &fakeCodeGenerator{})
 
-	_, err := service.CreateLink(context.Background(), "https://example.com", &customAlias)
+	_, err := service.CreateLink(context.Background(), "https://example.com", &customAlias, nil)
 	if !errors.Is(err, core_errors.ErrInvalidArgument) {
 		t.Fatalf("expected invalid argument, got %v", err)
 	}
@@ -200,7 +211,7 @@ func TestServiceCreateLinkCustomAliasConflict(t *testing.T) {
 	}
 	service := NewService(repository, &fakeCodeGenerator{})
 
-	_, err := service.CreateLink(context.Background(), "https://example.com", &customAlias)
+	_, err := service.CreateLink(context.Background(), "https://example.com", &customAlias, nil)
 	if !errors.Is(err, core_errors.ErrConflict) {
 		t.Fatalf("expected conflict, got %v", err)
 	}
@@ -223,7 +234,7 @@ func TestServiceCreateLinkGeneratedCollisionThenSuccess(t *testing.T) {
 	}
 	service := NewService(repository, generator)
 
-	link, err := service.CreateLink(context.Background(), "https://example.com", nil)
+	link, err := service.CreateLink(context.Background(), "https://example.com", nil, nil)
 	if err != nil {
 		t.Fatalf("create generated link after collision: %v", err)
 	}
@@ -246,7 +257,7 @@ func TestServiceCreateLinkGeneratedCollisionMaxAttemptsExceeded(t *testing.T) {
 	}
 	service := NewService(repository, generator)
 
-	_, err := service.CreateLink(context.Background(), "https://example.com", nil)
+	_, err := service.CreateLink(context.Background(), "https://example.com", nil, nil)
 	if !errors.Is(err, core_errors.ErrConflict) {
 		t.Fatalf("expected conflict, got %v", err)
 	}
@@ -317,6 +328,54 @@ func TestServiceResolveLinkDisabled(t *testing.T) {
 	_, err := service.ResolveLink(context.Background(), "disabled1")
 	if !errors.Is(err, core_errors.ErrNotFound) {
 		t.Fatalf("expected not found, got %v", err)
+	}
+}
+
+func TestServiceResolveLinkExpired(t *testing.T) {
+	t.Parallel()
+
+	expiresAt := time.Now().Add(-1 * time.Hour)
+	repository := fakeLinksRepository{
+		getLink: func(_ context.Context, code string) (links.Link, error) {
+			return links.Link{
+				ID:          uuid.New(),
+				Code:        code,
+				OriginalURL: "https://example.com",
+				ExpiresAt:   &expiresAt,
+			}, nil
+		},
+	}
+	service := NewService(repository, &fakeCodeGenerator{})
+
+	_, err := service.ResolveLink(context.Background(), "expired1")
+	if !errors.Is(err, core_errors.ErrNotFound) {
+		t.Fatalf("expected not found for expired link, got %v", err)
+	}
+}
+
+func TestServiceResolveLinkNotYetExpired(t *testing.T) {
+	t.Parallel()
+
+	expiresAt := time.Now().Add(1 * time.Hour)
+	expectedLink := links.Link{
+		ID:          uuid.New(),
+		Code:        "future1",
+		OriginalURL: "https://example.com",
+		ExpiresAt:   &expiresAt,
+	}
+	repository := fakeLinksRepository{
+		getLink: func(_ context.Context, code string) (links.Link, error) {
+			return expectedLink, nil
+		},
+	}
+	service := NewService(repository, &fakeCodeGenerator{})
+
+	link, err := service.ResolveLink(context.Background(), "future1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if link.Code != "future1" {
+		t.Fatalf("expected code future1, got %q", link.Code)
 	}
 }
 
@@ -466,7 +525,7 @@ func TestServiceResolveLinkCacheSetErrorReturnsRepositoryLink(t *testing.T) {
 	}
 }
 
-func TestServiceResolveLinkNotFoundDoesNotSetCache(t *testing.T) {
+func TestServiceResolveLinkNotFoundSetsNegativeCache(t *testing.T) {
 	t.Parallel()
 
 	cache := &fakeLinkCache{}
@@ -484,9 +543,12 @@ func TestServiceResolveLinkNotFoundDoesNotSetCache(t *testing.T) {
 	if cache.setCalls != 0 {
 		t.Fatalf("expected no cache set calls, got %d", cache.setCalls)
 	}
+	if cache.setMissingCalls != 1 {
+		t.Fatalf("expected one negative cache set call, got %d", cache.setMissingCalls)
+	}
 }
 
-func TestServiceResolveLinkDisabledDoesNotSetCache(t *testing.T) {
+func TestServiceResolveLinkDisabledSetsNegativeCache(t *testing.T) {
 	t.Parallel()
 
 	disabledAt := time.Now()
@@ -512,6 +574,9 @@ func TestServiceResolveLinkDisabledDoesNotSetCache(t *testing.T) {
 	}
 	if cache.deleteCalls != 1 {
 		t.Fatalf("expected one cache delete call, got %d", cache.deleteCalls)
+	}
+	if cache.setMissingCalls != 1 {
+		t.Fatalf("expected one negative cache set call, got %d", cache.setMissingCalls)
 	}
 }
 
@@ -546,6 +611,34 @@ func TestServiceResolveLinkCachedDisabledDeletesCache(t *testing.T) {
 	}
 	if cache.deleteCalls != 1 {
 		t.Fatalf("expected one cache delete call, got %d", cache.deleteCalls)
+	}
+	if cache.setMissingCalls != 1 {
+		t.Fatalf("expected one negative cache set call, got %d", cache.setMissingCalls)
+	}
+}
+
+func TestServiceResolveLinkNegativeCacheHitSkipsRepository(t *testing.T) {
+	t.Parallel()
+
+	cache := &fakeLinkCache{
+		getLink: func(_ context.Context, _ string) (links.Link, error) {
+			return links.Link{}, fmt.Errorf("negative cache hit: %w", core_errors.ErrNotFound)
+		},
+	}
+	repository := fakeLinksRepository{
+		getLink: func(_ context.Context, _ string) (links.Link, error) {
+			t.Fatal("repository must not be called on negative cache hit")
+			return links.Link{}, nil
+		},
+	}
+	service := NewServiceWithCache(repository, &fakeCodeGenerator{}, cache)
+
+	_, err := service.ResolveLink(context.Background(), "missing1")
+	if !errors.Is(err, core_errors.ErrNotFound) {
+		t.Fatalf("expected not found, got %v", err)
+	}
+	if cache.getCalls != 1 {
+		t.Fatalf("expected one cache get call, got %d", cache.getCalls)
 	}
 }
 
