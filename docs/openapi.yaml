@@ -21,6 +21,28 @@ paths:
                   status:
                     type: string
                     example: ok
+  /readyz:
+    get:
+      summary: Readiness check
+      responses:
+        "200":
+          description: Service dependencies are ready
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - status
+                properties:
+                  status:
+                    type: string
+                    example: ready
+        "503":
+          description: Service dependencies are not ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /api/v1/shorten:
     post:
       summary: Create a short URL
@@ -54,4 +76,15 @@ paths:
       responses:
         "501":
           description: Not implemented yet
-
+components:
+  schemas:
+    Error:
+      type: object
+      required:
+        - message
+        - code
+      properties:
+        message:
+          type: string
+        code:
+          type: string

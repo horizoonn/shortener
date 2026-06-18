@@ -66,6 +66,7 @@ curl http://localhost:8080/healthz
 | Method | Path | Status |
 | --- | --- | --- |
 | `GET` | `/healthz` | Implemented. |
+| `GET` | `/readyz` | Implemented. |
 | `POST` | `/api/v1/shorten` | Planned. |
 | `GET` | `/s/{code}` | Planned. |
 | `GET` | `/api/v1/analytics/{code}` | Planned. |
@@ -104,6 +105,10 @@ curl http://localhost:8080/api/v1/analytics/abc1234
 | `SHORTENER_HTTP_ALLOWED_ORIGINS` | `*` | Comma-separated CORS origins. |
 | `SHORTENER_HTTP_ALLOWED_METHODS` | `GET,POST,OPTIONS` | Comma-separated CORS methods. |
 | `SHORTENER_DATABASE_URL` | local PostgreSQL URL | PostgreSQL connection string. |
+| `SHORTENER_POSTGRES_TIMEOUT` | `5s` | PostgreSQL operation timeout. |
+| `SHORTENER_POSTGRES_MAX_CONNS` | `10` | PostgreSQL pool max connections. |
+| `SHORTENER_POSTGRES_MIN_CONNS` | `2` | PostgreSQL pool min connections. |
+| `SHORTENER_POSTGRES_MAX_CONN_IDLE_TIME` | `5m` | PostgreSQL pool idle lifetime. |
 | `SHORTENER_REDIS_ADDR` | `localhost:6379` | Redis address. |
 | `SHORTENER_REDIS_PASSWORD` | empty | Redis password. |
 | `SHORTENER_REDIS_DB` | `0` | Redis database number. |
