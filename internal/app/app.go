@@ -70,8 +70,9 @@ func New(ctx context.Context, cfg config.Config, log *logger.Logger) (*App, erro
 	analyticsService := analytics_service.NewService(analyticsRepository)
 
 	linksService := links_service.NewServiceWithCache(linksRepository, linksCodeGenerator, linksCache)
-	linksHTTPHandler := links_transport_http.NewHandlerWithClickRecorder(
+	linksHTTPHandler := links_transport_http.NewHandlerWithDependencies(
 		linksService,
+		analyticsService,
 		analyticsService,
 		cfg.HTTP.PublicBaseURL,
 	)

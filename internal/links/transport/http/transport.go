@@ -6,14 +6,16 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/horizoonn/shortener/internal/analytics"
 	"github.com/horizoonn/shortener/internal/httpapi/server"
 	"github.com/horizoonn/shortener/internal/links"
 )
 
 type Handler struct {
-	linksService  LinksService
-	clickRecorder ClickRecorder
-	publicBaseURL string
+	linksService    LinksService
+	clickRecorder   ClickRecorder
+	analyticsReader AnalyticsReader
+	publicBaseURL   string
 }
 
 type LinksService interface {
@@ -25,8 +27,12 @@ type ClickRecorder interface {
 	RecordClick(ctx context.Context, linkID uuid.UUID, userAgent string, referer *string, ip *string) error
 }
 
+type AnalyticsReader interface {
+	GetLinkAnalytics(ctx context.Context, linkID uuid.UUID, filter analytics.ClickFilter, recentLimit int) (analytics.LinkAnalytics, error)
+}
+
 func NewHandler(linksService LinksService, publicBaseURL string) *Handler {
-	return NewHandlerWithClickRecorder(linksService, nil, publicBaseURL)
+	return NewHandlerWithDependencies(linksService, nil, nil, publicBaseURL)
 }
 
 func NewHandlerWithClickRecorder(
@@ -34,10 +40,20 @@ func NewHandlerWithClickRecorder(
 	clickRecorder ClickRecorder,
 	publicBaseURL string,
 ) *Handler {
+	return NewHandlerWithDependencies(linksService, clickRecorder, nil, publicBaseURL)
+}
+
+func NewHandlerWithDependencies(
+	linksService LinksService,
+	clickRecorder ClickRecorder,
+	analyticsReader AnalyticsReader,
+	publicBaseURL string,
+) *Handler {
 	return &Handler{
-		linksService:  linksService,
-		clickRecorder: clickRecorder,
-		publicBaseURL: strings.TrimRight(publicBaseURL, "/"),
+		linksService:    linksService,
+		clickRecorder:   clickRecorder,
+		analyticsReader: analyticsReader,
+		publicBaseURL:   strings.TrimRight(publicBaseURL, "/"),
 	}
 }
 
@@ -47,6 +63,11 @@ func (h *Handler) Routes() []server.Route {
 			Method:  nethttp.MethodPost,
 			Path:    "/shorten",
 			Handler: h.CreateLink,
+		},
+		{
+			Method:  nethttp.MethodGet,
+			Path:    "/analytics/{code}",
+			Handler: h.GetAnalytics,
 		},
 	}
 }

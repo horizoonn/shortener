@@ -31,3 +31,11 @@ type UserAgentCount struct {
 	UserAgent string
 	Count     int64
 }
+
+type LinkAnalytics struct {
+	TotalClicks       int64
+	ClicksByDay       []TimeBucketCount
+	ClicksByMonth     []TimeBucketCount
+	ClicksByUserAgent []UserAgentCount
+	RecentClicks      []Click
+}
